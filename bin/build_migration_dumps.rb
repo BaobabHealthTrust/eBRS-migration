@@ -425,7 +425,6 @@ def initiate_sql_dump_build(record, doc_id)
 
   case registration_type
     when "normal"
-      return
       unless client.mother.blank?
         mother_record(record,"Mother", doc_id)
       end
@@ -439,11 +438,31 @@ def initiate_sql_dump_build(record, doc_id)
       end
 
     when "orphaned"
-      raise "orphaned #{record.to_yaml}"
-    when "adopted"
-      raise "adopted #{record.to_yaml}"
-    when "abandoned"
-      raise "abandoned #{record.to_yaml}"
+      informant_record(record, doc_id)
+    when "adopted" || "abandoned"
+      if record[:biological_parents] == "Both" || record[:biological_parents] =="Mother"
+        mother_record(person, 'Mother')
+      end
+      
+      if record[:biological_parents] == "Both" || record[:biological_parents] =="Father"
+        father_record(record, 'Father')
+      end
+      
+      if params[:foster_parents] == "Both"
+        mother_record(person, 'Adoptive-Mother')
+        father_record(record, 'Adoptive-Father')
+      end
+
+      if params[:foster_parents] =="Mother"
+        mother_record(person, 'Adoptive-Mother')
+      end
+      
+      if params[:foster_parents] =="Father"
+        mother_record(person, 'Adoptive-Father')
+      end
+        
+      informant_record(record, doc_id)
+
   else
   end
 
@@ -461,7 +480,7 @@ def start
   while (current_page < total_pages) do
     build_client_record(current_page, page_size)
     current_page = current_page + 1
-    #break
+    break
   end
 
    puts "\n"
