@@ -265,10 +265,10 @@ end
 
 def save_full_record(params, district_id_number)
      puts "In save full record ...."
-=begin
-   begin
+#=begin
+   #begin
         params[:record_status] = get_record_status(params[:record_status],params[:request_status]).upcase.squish!
-    	  person = PersonService.create_record(params)
+    	  person, @document_tracker, @used_ids = PersonService.create_record(params, @document_tracker, @used_ids)
 
       if !person.blank?
         
@@ -282,10 +282,10 @@ def save_full_record(params, district_id_number)
         
       end
 
-   rescue StandardError => e
-          log_error(e.message, params)
-   end
-=end
+   #rescue StandardError => e
+    #      log_error(e.message, params)
+   #end
+#=end
 end
 
 def mother_record_exist
@@ -507,12 +507,10 @@ end
 
 
 def build_client_record(current_pge, pge_size)
-
   data ={}
 
   records = Child.all.page(current_pge).limit(pge_size)
  
-
   (records || []).each do |r|
      
 	  data = { person: {duplicate: "", is_exact_duplicate: "",
@@ -609,9 +607,9 @@ def initiate_migration
 	current_page = 1
 
 	while (current_page < total_pages) do
-
-        build_client_record(current_page, page_size)
-        current_page = current_page + 1
+    build_client_record(current_page, page_size)
+    current_page = current_page + 1
+    break
 	end
 
    puts "\n"

@@ -2,26 +2,26 @@ module PersonService
   require 'bean'
   require 'json'
 
-  def self.create_record(params)
-
+  def self.create_record(params, document_tracker, used_ids)
+    doc_id = params[:_id]
     registration_type   = params[:person][:relationship]
-    person  = Lib.new_child(params, @document_tracker)
-    @document_tracker['doc_id']['client_id'] = person.person_id 
-    @used_ids << person.person_id
-
+    person_id  = Lib.new_child(params, document_tracker)
+    document_tracker[doc_id][:client_id] = person_id 
+    used_ids << person_id
+    
     case registration_type
       when "normal"
-        @document_tracker['doc_id'][:mother_id] = @used_ids.sort.last + 1
-        mother   = Lib.new_mother(person, params, 'Mother', @document_tracker)
-        @used_ids << mother.person_id
+        document_tracker[doc_id][:mother_id] = used_ids.sort.last + 1
+        mother   = Lib.new_mother(params, 'Mother', document_tracker)
+        used_ids << mother.person_id
 
-        @document_tracker['doc_id'][:father_id] = @used_ids.sort.last + 1
-        father   = Lib.new_father(person, params,'Father', @document_tracker)
-        @used_ids << father.person_id
+        document_tracker[doc_id][:father_id] = used_ids.sort.last + 1
+        father   = Lib.new_father(person, params,'Father', document_tracker)
+        used_ids << father.person_id
 
-        @document_tracker['doc_id'][:infromant_id] = @used_ids.sort.last + 1
-        informant = Lib.new_informant(person, params, @document_tracker)
-        @used_ids << informant.person_id
+        document_tracker[doc_id][:infromant_id] = used_ids.sort.last + 1
+        informant = Lib.new_informant(person, params, document_tracker)
+        used_ids << informant.person_id
         
       when "orphaned"
         #mother   = Lib.new_mother(person, params, 'Adoptive-Mother')
@@ -55,7 +55,7 @@ module PersonService
    
     details = Lib.new_birth_details(person, params)
     status = Lib.workflow_init(person,params)
-    return person
+    return [person, document_tracker, used_ids]
   end
 
   def self.update_record(params)

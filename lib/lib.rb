@@ -3,7 +3,7 @@ module Lib
   require 'json'
   
 
-  def self.new_child(params,document_tracker)
+  def self.new_child(params, document_tracker)
 
         core_person = CorePerson.new
         core_person.person_type_id = PersonType.where(name: 'Client').last.id
@@ -12,7 +12,8 @@ module Lib
         #core_person.save
         #@rec_count = @rec_count.to_i + 1
         #person_id = CorePerson.first.person_id.to_i + @rec_count.to_i 
-        person_id = document_tracker[:_id]['client_id']
+        person_id = document_tracker[params[:_id]][:client_id]
+
         sql_query = "(#{person_id}, #{core_person.person_type_id},\"#{params[:person][:created_at].to_date}\", \"#{params[:person][:updated_at].to_date}\"),"
         #row = "#{params[:_id]},#{core_person.person_id},"
         
@@ -32,7 +33,7 @@ module Lib
     person_sql = "(#{person_id},#{person.gender},\"#{person.birthdate}\",\"#{person.created_at}\""
     person_sql += ",\"#{person.updated_at}\"),"
 
-    self.write_to_dump("person.sql",person_sql)
+    self.write_to_dump("person.sql", person_sql)
 
     person_name = PersonName.new
     person_name.person_id          = person_id
@@ -47,8 +48,7 @@ module Lib
 
     self.write_to_dump("person_name.sql", person_name_sql)
     
-    person
-
+    return person_id
   end
 
   def self.new_mother(person, params,mother_type, document_tracker)
