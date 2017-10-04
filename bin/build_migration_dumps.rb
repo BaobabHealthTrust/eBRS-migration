@@ -250,7 +250,10 @@ end
       sql += "\"#{record[:person][:informant][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
     end
 
-    `echo -n '#{sql}' >> #{@dump_files}person_name.sql`
+    begin
+      `echo -n '#{sql}' >> #{@dump_files}person_name.sql`
+    rescue
+    end
 end
 
 def build_person_address_sql(record, type)
@@ -422,6 +425,7 @@ def initiate_sql_dump_build(record, doc_id)
 
   case registration_type
     when "normal"
+      return
       unless client.mother.blank?
         mother_record(record,"Mother", doc_id)
       end
@@ -435,8 +439,11 @@ def initiate_sql_dump_build(record, doc_id)
       end
 
     when "orphaned"
+      raise "orphaned #{record.to_yaml}"
     when "adopted"
+      raise "adopted #{record.to_yaml}"
     when "abandoned"
+      raise "abandoned #{record.to_yaml}"
   else
   end
 
@@ -446,7 +453,7 @@ def start
 
   prepare_dump_files
   total_records = Child.count
-  page_size = 10
+  page_size = 1000
   @total_records = total_records
   total_pages = (total_records / page_size) + (total_records % page_size)
   current_page = 0
@@ -454,7 +461,7 @@ def start
   while (current_page < total_pages) do
     build_client_record(current_page, page_size)
     current_page = current_page + 1
-    break
+    #break
   end
 
    puts "\n"

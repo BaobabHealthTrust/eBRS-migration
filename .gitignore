@@ -29,3 +29,4 @@ public/errors/*
 *.~*
 public/sites/*
 public/query.sql
+app/assets/data/migration_dumps/*
