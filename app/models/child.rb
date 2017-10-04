@@ -9,6 +9,8 @@ class Child < CouchRest::Model::Base
  
   validates :npid , uniqueness: {allow_blank: true, message: "NPID cannot be duplicate"}
   
+  validates_with ChildValidator
+
   before_save NameCodes.new("first_name"), NameCodes.new("last_name"), NameCodes.new("middle_name"),
               NameCodes.new("middle_name", "mother"), NameCodes.new("middle_name", "father"),
               NameCodes.new("middle_name", "informant"), NameCodes.new("first_name", "mother"),

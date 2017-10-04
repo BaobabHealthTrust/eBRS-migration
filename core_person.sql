@@ -1,0 +1,1 @@
+INSERT INTO core_person (person_id,person_type_id,created_at,updated_at) VALUES 
