@@ -1,1 +1,0 @@
-INSERT INTO person_attribute () VALUES 
