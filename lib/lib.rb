@@ -5,22 +5,17 @@ module Lib
 
   def self.new_child(params, document_tracker)
         
-        core_person = CorePerson.new
-        core_person.person_type_id = PersonType.where(name: 'Client').last.id
-        core_person.created_at = params[:person][:created_at].to_date.strftime("%Y-%m-%d HH:MM:00")
-        core_person.updated_at = params[:person][:updated_at].to_date
-        #core_person.save
-        #@rec_count = @rec_count.to_i + 1
-        #person_id = CorePerson.first.person_id.to_i + @rec_count.to_i 
-        person_id = document_tracker[params[:_id]][:client_id]
-        
-        sql_query = "(#{person_id}, #{core_person.person_type_id},\"#{params[:person][:created_at].to_date}\", \"#{params[:person][:updated_at].to_date}\"),"
-        #row = "#{params[:_id]},#{core_person.person_id},"
-        
-        #save_ids(row)
-        self.write_to_dump("core_person.sql",sql_query)
+    core_person = CorePerson.new
+    core_person.person_type_id = PersonType.where(name: 'Client').last.id
+    core_person.created_at = params[:person][:created_at].to_date.strftime("%Y-%m-%d HH:MM:00")
+    core_person.updated_at = params[:person][:updated_at].to_date
 
+    person_id = document_tracker[params[:_id]][:client_id]
         
+    sql_query = "(#{person_id}, #{core_person.person_type_id},\"#{params[:person][:created_at].to_date}\", \"#{params[:person][:updated_at].to_date}\"),"
+    self.write_to_dump("core_person.sql",sql_query)
+    row = "#{params[:_id]},#{person_id},"
+    save_ids(row)
         
    
     person = Person.new
@@ -341,7 +336,8 @@ module Lib
 def self.new_informant(params,document_tracker)
 
     doc_id = params[:_id]
-    informant_person = nil; core_person = nil
+    informant_person = nil; core_person = nil; informant_id = nil
+
 
     informant = params[:person][:informant]
     informant[:citizenship] = 'Malawian' if informant[:citizenship].blank?
@@ -393,7 +389,7 @@ def self.new_informant(params,document_tracker)
 
       self.write_to_dump("person.sql",informant_person_sql)
 
-      person_name = PersonName.create
+      person_name = PersonName.new
       person_name.person_id   = informant_person.id,
       person_name.first_name  = informant[:first_name]
       person_name.middle_name = informant[:middle_name]
@@ -487,12 +483,19 @@ def self.new_informant(params,document_tracker)
       
   end
 
-    puts "Informant record for client: #{person.person_id} created..."
+    puts "Informant record for client: #{document_tracker[doc_id][:client_id]} created..."
+  if params[:informant_same_as_mother] == 'Yes'
+     informant_id = document_tracker[doc_id][:mother_id]
+  elsif params[:informant_same_as_father] == 'Yes'
+      informant_id = document_tracker[doc_id][:father_id]
+  else
+      informant_id = document_tracker[doc_id][:informant_id]
+  end 
 
   if informant[:phone_number].present?
-
+      
       person_attribute = PersonAttribute.new
-      person_attribute.person_id                = informant_person.person_id
+      person_attribute.person_id                = informant_id
       person_attribute.person_attribute_type_id = PersonAttributeType.where(name: 'cell phone number').last.id
       person_attribute.value                    = informant[:phone_number]
       person_attribute.voided                   = 0
@@ -514,24 +517,28 @@ def self.new_informant(params,document_tracker)
     informant_person
 end
 
-def self.new_birth_details(person, params)
+def self.new_birth_details(document_tracker, params)
+
+    doc_id = params[:_id]
 
     if self.is_twin_or_triplet(params[:person][:type_of_birth].to_s)
       return self.birth_details_multiple(person,params)
     end
-    person_id = person.id; place_of_birth_id = nil; location_id = nil; other_place_of_birth = nil
-    person = params[:person]
 
+    person_id = document_tracker[doc_id][:client_id]; place_of_birth_id = nil; location_id = nil; other_place_of_birth = nil
+    person = params[:person]
+    
     if SETTINGS['application_mode'] == 'FC'
       place_of_birth_id = Location.where(name: 'Hospital').last.id
       location_id = SETTINGS['location_id']
     else
+      
       unless person[:place_of_birth].blank?
         place_of_birth_id = Location.locate_id_by_tag(person[:place_of_birth], 'Place of Birth')
       else
         place_of_birth_id = Location.locate_id_by_tag("Other", 'Place of Birth')
       end
-
+     
       if person[:place_of_birth] == 'Home'
         district_id = Location.locate_id_by_tag(person[:birth_district], 'District')
         ta_id = Location.locate_id(person[:birth_ta], 'Traditional Authority', district_id)
@@ -556,7 +563,7 @@ def self.new_birth_details(person, params)
         other_place_of_birth = params[:other_birth_place_details]
       end
     end
-
+   
     reg_type = SETTINGS['application_mode'] =='FC' ? BirthRegistrationType.where(name: 'Normal').first.birth_registration_type_id :
         BirthRegistrationType.where(name: params[:person][:relationship]).last.birth_registration_type_id
     
@@ -578,7 +585,7 @@ def self.new_birth_details(person, params)
     else
       type_of_birth_id = PersonTypeOfBirth.where(name:  'Single').last.id
     end
-
+    
     
     rel = nil
     if params[:informant_same_as_mother] == 'Yes'
@@ -589,42 +596,55 @@ def self.new_birth_details(person, params)
       rel = params[:person][:informant][:relationship_to_person] rescue nil
     end
    
-  begin
+  #begin
 
-    details = PersonBirthDetail.create(
-        person_id:                                person_id,
-        birth_registration_type_id:               reg_type,
-        place_of_birth:                           place_of_birth_id,
-        birth_location_id:                        location_id,
-        district_of_birth:                        Location.where("name = '#{params[:person][:birth_district]}' AND code IS NOT NULL").first.id,
-        other_birth_location:                     other_place_of_birth,
-        birth_weight:                             (person[:birth_weight].blank? ? nil : person[:birth_weight]),
-        type_of_birth:                            type_of_birth_id,
-        parents_married_to_each_other:            (person[:parents_married_to_each_other] == 'No' ? 0 : 1),
-        date_of_marriage:                         (person[:date_of_marriage] rescue nil),
-        gestation_at_birth:                       (params[:gestation_at_birth].blank? ? nil : params[:gestation_at_birth]),
-        number_of_prenatal_visits:                (params[:number_of_prenatal_visits].blank? ? nil : params[:number_of_prenatal_visits]),
-        month_prenatal_care_started:              (params[:month_prenatal_care_started].blank? ? nil : params[:month_prenatal_care_started]),
-        mode_of_delivery_id:                      (ModeOfDelivery.where(name: person[:mode_of_delivery]).first.id rescue 1),
-        number_of_children_born_alive_inclusive:  (params[:number_of_children_born_alive_inclusive].present? ? params[:number_of_children_born_alive_inclusive] : 1),
-        number_of_children_born_still_alive:      (params[:number_of_children_born_still_alive].present? ? params[:number_of_children_born_still_alive] : 1),
-        level_of_education_id:                    (LevelOfEducation.where(name: person[:level_of_education]).last.id rescue 1),
-        court_order_attached:                     (person[:court_order_attached] == 'Yes' ? 1 : 0),
-        parents_signed:                           (person[:parents_signed] == 'Yes' ? 1 : 0),
-        form_signed:                              (person[:form_signed] == 'Yes' ? 1 : 0),
-        informant_designation:                    (params[:person][:informant][:designation].present? ? params[:person][:informant][:designation].to_s : nil),
-        informant_relationship_to_person:          rel,
-        other_informant_relationship_to_person:   (params[:person][:informant][:relationship_to_person].to_s == "Other" ? (params[:person][:informant][:other_informant_relationship_to_person] rescue nil) : nil),
-        acknowledgement_of_receipt_date:          (person[:acknowledgement_of_receipt_date].to_date rescue nil),
-        location_created_at:                      SETTINGS['location_id'],
-        date_registered:                          (Date.today.to_s),
-        created_at:                               params[:person][:created_at].to_date.to_s,
-        updated_at:                               params[:person][:updated_at].to_date.to_s
-    )
+    details = PersonBirthDetail.new
+    details.person_id                     =           person_id
+    details.birth_registration_type_id    =           reg_type
+    details.place_of_birth                =           place_of_birth_id
+    details.birth_location_id             =           location_id
+    details.district_of_birth             =           Location.where("name = '#{params[:person][:birth_district]}' AND code IS NOT NULL").first.id
+    details.other_birth_location          =           other_place_of_birth
+    details.birth_weight                  =           (person[:birth_weight].blank? ? nil : person[:birth_weight])
+    details.type_of_birth                 =           type_of_birth_id
+    details.parents_married_to_each_other =           (person[:parents_married_to_each_other] == 'No' ? 0 : 1)
+    details.date_of_marriage              =           (person[:date_of_marriage] rescue nil)
+    details.gestation_at_birth            =           (params[:gestation_at_birth].blank? ? nil : params[:gestation_at_birth])
+    details.number_of_prenatal_visits     =           (params[:number_of_prenatal_visits].blank? ? nil : params[:number_of_prenatal_visits])
+    details.month_prenatal_care_started   =           (params[:month_prenatal_care_started].blank? ? nil : params[:month_prenatal_care_started])
+    details.mode_of_delivery_id           =           (ModeOfDelivery.where(name: person[:mode_of_delivery]).first.id rescue 1)
+    details.number_of_children_born_alive_inclusive =  (params[:number_of_children_born_alive_inclusive].present? ? params[:number_of_children_born_alive_inclusive] : 1)
+    details.number_of_children_born_still_alive     =  (params[:number_of_children_born_still_alive].present? ? params[:number_of_children_born_still_alive] : 1)
+    details.level_of_education_id                   = (LevelOfEducation.where(name: person[:level_of_education]).last.id rescue 1)
+    details.court_order_attached                    = (person[:court_order_attached] == 'Yes' ? 1 : 0)
+    details.parents_signed                          = (person[:parents_signed] == 'Yes' ? 1 : 0)
+    details.form_signed                             = (person[:form_signed] == 'Yes' ? 1 : 0)
+    details.informant_designation                   = (params[:person][:informant][:designation].present? ? params[:person][:informant][:designation].to_s : nil)
+    details.informant_relationship_to_person        =  rel
+    details.other_informant_relationship_to_person  = (params[:person][:informant][:relationship_to_person].to_s == "Other" ? (params[:person][:informant][:other_informant_relationship_to_person] rescue nil) : nil)
+    details.acknowledgement_of_receipt_date         = (person[:acknowledgement_of_receipt_date].to_date rescue nil)
+    details.location_created_at                     = SETTINGS['location_id']
+    details.date_registered                         = (Date.today.to_s)
+    details.created_at                              = params[:person][:created_at].to_date.to_s
+    details.updated_at                              = params[:person][:updated_at].to_date.to_s
     
-  rescue StandardError => e
-    self.log_error(e.message, params)
-  end
+    details_sql = "(#{details.person_id},#{details.birth_registration_type_id},#{details.place_of_birth},"
+    details_sql += "#{details.birth_location_id},#{details.district_of_birth},\"#{details.other_birth_location}\","
+    details_sql += "#{details.birth_weight},#{details.type_of_birth},#{details.parents_married_to_each_other},"
+    details_sql += "\"#{details.date_of_marriage}\",#{details.gestation_at_birth},#{details.number_of_prenatal_visits},"
+    details_sql += "#{details.month_prenatal_care_started},#{details.mode_of_delivery_id},"
+    details_sql += "#{details.number_of_children_born_alive_inclusive},#{details.number_of_children_born_still_alive},"
+    details_sql += "\"#{details.level_of_education}\",#{details.court_order_attached},#{details.parents_signed},"
+    details_sql += "#{details.form_signed},\"#{details.informant_designation}\",\"#{details.informant_relationship_to_person}\","
+    details_sql += "\"#{details.acknowledgement_of_receipt_date}\",\"#{details.location_created_at}\",\"#{details.date_registered}\","
+    details_sql += "\"#{details.created_at}\",\"#{details.updated_at}\"),"
+
+    self.write_to_dump("person_birth_details.sql",details_sql)
+    
+
+  #rescue StandardError => e
+    #self.log_error(e.message, params)
+  #end
 
     return details
 
@@ -662,22 +682,26 @@ end
     return details
   end
 
-  def self.workflow_init(person,params)
-    
+  def self.workflow_init(document_tracker,params)
+
+     doc_id = params[:_id]
+     person_id = document_tracker[doc_id][:client_id]
+
     status = nil
     is_record_a_duplicate = params[:person][:duplicate] rescue nil
-    begin
+    #begin
     if is_record_a_duplicate.present?
+
         if params[:person][:is_exact_duplicate].present? && eval(params[:person][:is_exact_duplicate].to_s)
-            status = PersonRecordStatus.new_record_state(person.id, 'DC-DUPLICATE')
+            status = PersonRecordStatus.new_record_state(person_id, 'DC-DUPLICATE')
         else
           if SETTINGS["application_mode"] == "FC"
-            status = PersonRecordStatus.new_record_state(person.id, 'FC-POTENTIAL DUPLICATE')
+            status = PersonRecordStatus.new_record_state(person_id, 'FC-POTENTIAL DUPLICATE')
           else
-            status = PersonRecordStatus.new_record_state(person.id, 'DC-POTENTIAL DUPLICATE')
+            status = PersonRecordStatus.new_record_state(person_id, 'DC-POTENTIAL DUPLICATE')
           end
         end
-        potential_duplicate = PotentialDuplicate.create(person_id: person.id,created_at: (Time.now))
+        potential_duplicate = PotentialDuplicate.create(person_id: person_id,created_at: (Time.now))
         if potential_duplicate.present?
              is_record_a_duplicate.split("|").each do |id|
                 potential_duplicate.create_duplicate(id)
@@ -685,12 +709,12 @@ end
         end
     else
        #status = PersonRecordStatus.new_record_state(person.id, 'DC-ACTIVE')
-       status = PersonRecordStatus.new_record_state(person.id, params[:record_status])
+       status = PersonRecordStatus.new_record_state(person_id, params[:record_status])
     end
-    rescue StandardError =>e
+    #rescue StandardError =>e
 
-        self.log_error(e.message, params)
-    end
+        #self.log_error(e.message, params)
+    #end
 
     return status
   end

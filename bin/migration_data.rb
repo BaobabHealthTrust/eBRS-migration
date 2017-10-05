@@ -270,17 +270,17 @@ def save_full_record(params, district_id_number)
         params[:record_status] = get_record_status(params[:record_status],params[:request_status]).upcase.squish!
     	  person, @document_tracker, @used_ids = PersonService.create_record(params, @document_tracker, @used_ids)
 
-      if !person.blank?
+      #if !person.blank?
         
-        record_status = PersonRecordStatus.where(person_id: person.person_id).first
-        
+        #record_status = PersonRecordStatus.where(person_id: person.person_id).first
+        #raise "===================== Record stat: #{record_status}".inspect
         	#status = get_record_status(params[:record_status],params[:request_status]).upcase.squish!
 	        #record_status.update_attributes(status_id: Status.where(name: status).last.id)
-	    assign_district_id(person.person_id, (district_id_number.to_s rescue "NULL"))
+	    #assign_district_id(person.person_id, (district_id_number.to_s rescue "NULL"))
 	    puts "Record for #{params[:person][:first_name]} #{params[:person][:middle_name]} #{params[:person][:last_name]} Created ............. "
 
         
-      end
+      #end
 
    #rescue StandardError => e
     #      log_error(e.message, params)
@@ -385,8 +385,8 @@ def assign_district_id(person_id, ben)
 	ben_exist = PersonBirthDetail.where(district_id_number: ben)
 
 	if ben_exist.blank?
-		birth_details = PersonBirthDetail.where(person_id: person_id).first
-	    birth_details.update_attributes(district_id_number: ben)
+		 birth_details = PersonBirthDetail.where(person_id: person_id).first
+	   birth_details.update_attributes(district_id_number: ben)
 
 	else
 		PersonAttribute.create(value: ben, person_id: person_id, person_attribute_type_id: Duplicate_attribute_type_id )
@@ -509,7 +509,7 @@ end
 def build_client_record(current_pge, pge_size)
   data ={}
 
-  records = Child.all.page(current_pge).limit(pge_size)
+  records = Child.all.page(current_pge).per(pge_size)
  
   (records || []).each do |r|
      

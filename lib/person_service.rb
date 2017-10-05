@@ -25,41 +25,81 @@ module PersonService
 
         document_tracker[doc_id][:informant_id] = used_ids.sort.last + 1
         informant = Lib.new_informant(params, document_tracker)
-        used_ids << informant.person_id
+        used_ids << document_tracker[doc_id][:informant_id]
         
       when "orphaned"
         #mother   = Lib.new_mother(person, params, 'Adoptive-Mother')
         #father   = Lib.new_father(person, params,'Adoptive-Father')
-        informant = Lib.new_informant(person, params)
+
+        document_tracker[doc_id][:informant_id] = used_ids.sort.last + 1
+        informant = Lib.new_informant(params, document_tracker)
+        used_ids << document_tracker[doc_id][:informant_id]
+
       when "adopted"
         if params[:biological_parents] == "Both" || params[:biological_parents] =="Mother"
-          mother   = Lib.new_mother(person, params, 'Mother')
+
+          document_tracker[doc_id][:mother_id] = used_ids.sort.last + 1
+          mother   = Lib.new_mother(params, 'Mother', document_tracker)
+          used_ids << mother.person_id
+
         end
         if params[:biological_parents] == "Both" || params[:biological_parents] =="Father"
-          father   = Lib.new_father(person, params,'Father')
+
+          document_tracker[doc_id][:father_id] = used_ids.sort.last + 1
+          father   = Lib.new_father(params,'Father', document_tracker)
+          unless father.blank?
+            used_ids << father.person_id
+          end
+
         end
         if params[:foster_parents] == "Both" || params[:foster_parents] =="Mother"
-          adoptive_mother   = Lib.new_mother(person, params, 'Adoptive-Mother')
+
+          document_tracker[doc_id][:mother_id] = used_ids.sort.last + 1
+          adoptive_mother   = Lib.new_mother(params, 'Adoptive-Mother',document_tracker)
+          used_ids << adoptive_mother.person_id
         end
         if params[:foster_parents] == "Both" || params[:foster_parents] =="Mother"
-          adoptive_father   = Lib.new_father(person, params,'Adoptive-Father')
+          
+          document_tracker[doc_id][:father_id] = used_ids.sort.last + 1
+          adoptive_father   = Lib.new_father(params,'Adoptive-Father',document_tracker)
+          unless father.blank?
+            used_ids << adoptive_father.person_id
+          end
         end
-        informant = Lib.new_informant(person, params)
+
+        document_tracker[doc_id][:informant_id] = used_ids.sort.last + 1
+        informant = Lib.new_informant(params, document_tracker)
+        used_ids << document_tracker[doc_id][:informant_id]
+
       when "abandoned"
         if params[:parents_details_available] == "Both" || params[:parents_details_available] == "Mother"
-          mother   = Lib.new_mother(person, params, 'Mother')
+
+          document_tracker[doc_id][:mother_id] = used_ids.sort.last + 1
+          mother   = Lib.new_mother(params, 'Mother',document_tracker)
+          used_ids << mother.person_id
         end
         if params[:parents_details_available] == "Both" || params[:parents_details_available] == "Father"
-          mother   = Lib.new_father(person, params, 'Father')
+
+          document_tracker[doc_id][:father_id] = used_ids.sort.last + 1
+          father   = Lib.new_father(params, 'Father', document_tracker)
+          unless father.blank?
+           used_ids << father.person_id
+          end
         end
-        informant = Lib.new_informant(person, params)
+
+        document_tracker[doc_id][:informant_id] = used_ids.sort.last + 1
+        informant = Lib.new_informant(params, document_tracker)
+        used_ids << document_tracker[doc_id][:informant_id]
+
     else 
 
     end
-   
-    details = Lib.new_birth_details(person, params)
-    status = Lib.workflow_init(person,params)
-    return [person, document_tracker, used_ids]
+    
+    details = Lib.new_birth_details(document_tracker, params)
+    status = Lib.workflow_init(document_tracker,params)
+    
+    return [details, document_tracker, used_ids]
+
   end
 
   def self.update_record(params)
