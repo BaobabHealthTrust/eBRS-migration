@@ -45,7 +45,7 @@ end
 def prepare_dump_files
 
   core_person ="INSERT INTO core_person (person_id,person_type_id,created_at,updated_at) VALUES "
-  person = "INSERT INTO person () VALUES "
+  person = "INSERT INTO person (person_id,gender,birthdate_estimated,birthdate,created_at,updated_at) VALUES "
   person_name = "INSERT INTO person_name () VALUES "
   person_identifier = "INSERT INTO person_identifier () VALUES "
   person_addresses = "INSERT INTO person_addresses () VALUES ()"
@@ -265,7 +265,7 @@ end
 
 def save_full_record(params, district_id_number)
      puts "In save full record ...."
-#=begin
+ begin
    #begin
         params[:record_status] = get_record_status(params[:record_status],params[:request_status]).upcase.squish!
     	  person, @document_tracker, @used_ids = PersonService.create_record(params, @document_tracker, @used_ids)
@@ -282,9 +282,9 @@ def save_full_record(params, district_id_number)
         
       #end
 
-   #rescue StandardError => e
-    #      log_error(e.message, params)
-   #end
+  rescue StandardError => e
+    log_error(e.message, params)
+   end
 #=end
 end
 
@@ -445,17 +445,6 @@ def transform_record(data)
             puts "registration type: #{data[:registration_type]} \n"
             puts "Saving full record for #{data[:person][:first_name]} #{data[:person][:last_name]} ..."
             save_full_record(data,data[:person][:district_id_number])
-=begin
-    	if precision_level(mother_records, data) == 7
-    		puts "registration type: #{data[:registration_type]} \n"
-            puts "Saving partial record for #{data[:person][:first_name]} #{data[:person][:last_name]} ..."
-    	    #save_partial_record(data, data[:person][:district_id_number])
-    	else
-    		    puts "registration type: #{data[:registration_type]} \n"
-            puts "Saving full record for #{data[:person][:first_name]} #{data[:person][:last_name]} ..."
-            save_full_record(data,data[:person][:district_id_number])
-    	end
-=end
     end
 
 end
@@ -509,8 +498,9 @@ end
 def build_client_record(current_pge, pge_size)
   data ={}
 
-  records = Child.all.page(current_pge).per(pge_size)
- 
+  #records = Child.all.page(current_pge).per(pge_size)
+  records = Child.by_created_at.page(current_pge).per(pge_size)
+  #records = Child.all
   (records || []).each do |r|
      
 	  data = { person: {duplicate: "", is_exact_duplicate: "",
@@ -567,6 +557,52 @@ def build_client_record(current_pge, pge_size)
 					     addressline2: r[:informant][:addressline2],
 					     phone_number: r[:informant][:phone_number]
 					  },
+            foster_mother: {
+              id_number: r[:id_number],
+              first_name: r[:first_name],
+              middle_name: r[:middle_name],
+              last_name: r[:last_name],
+              birthdate: r[:birthdate],
+              birthdate_estimated: r[:birthdate_estimated],
+              current_village: r[:current_village],
+              current_ta: r[:current_ta],
+              current_district: r[:current_district],
+              home_village: r[:home_village],
+              home_ta: r[:home_ta],
+              home_district: r[:home_district],
+              home_country: r[:home_country],
+              citizenship: r[:citizenship],
+              residential_country: r[:residential_country],
+              foreigner_current_district: r[:foreigner_current_district],
+              foreigner_current_village: r[:foreigner_current_village],
+              foreigner_current_ta: r[:foreigner_current_ta],
+              foreigner_home_district: r[:foreigner_home_district],
+              foreigner_home_village: r[:foreigner_home_village],
+              foreigner_home_ta: r[:foreigner_home_ta]
+              },
+              foster_father: {
+              id_number: r[:id_number],
+              first_name: r[:first_name],
+              middle_name: r[:middle_name],
+              last_name: r[:last_name],
+              birthdate: r[:birthdate],
+              birthdate_estimated: r[:birthdate_estimated],
+              current_village: r[:current_village],
+              current_ta: r[:current_ta],
+              current_district: r[:current_district],
+              home_village: r[:home_village],
+              home_ta: r[:home_ta],
+              home_district: r[:home_district],
+              home_country: r[:home_country],
+              citizenship: r[:citizenship],
+              residential_country: r[:residential_country],
+              foreigner_current_district: r[:foreigner_current_district],
+              foreigner_current_village: r[:foreigner_current_village],
+              foreigner_current_ta: r[:foreigner_current_ta],
+              foreigner_home_district: r[:foreigner_home_district],
+              foreigner_home_village: r[:foreigner_home_village],
+              foreigner_home_ta: r[:foreigner_home_ta]
+              },
 					   form_signed: r[:form_signed],
 					   acknowledgement_of_receipt_date: r[:acknowledgement_of_receipt_date]
 					  },
@@ -602,16 +638,17 @@ def initiate_migration
 
   prepare_dump_files
 	total_records = Child.count
-	page_size = 100
-	total_pages = (total_records / page_size) + (total_records % page_size)
-	current_page = 1
+	page_size = 1000
+	total_pages = (total_records / page_size) + ((total_records % page_size) > 0 ? 1 : 0)
+	current_page = 0
 
-	while (current_page < total_pages) do
+  while (current_page < total_pages) do
     build_client_record(current_page, page_size)
     current_page = current_page + 1
-    break
+    
 	end
 
+  #build_client_record(0, 5000)
    puts "\n"
 	 #puts "Completed migration of 1 of 3 batch of records! Please review the log files to verify.."
 	 puts "\n"

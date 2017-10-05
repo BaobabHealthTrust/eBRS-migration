@@ -65,7 +65,7 @@ module Lib
           return nil
         end
         
-     #begin
+     begin
          
         core_person = CorePerson.new
         core_person.person_type_id     = PersonType.where(name: mother_type).last.id
@@ -73,7 +73,7 @@ module Lib
         core_person.updated_at         = params[:person][:updated_at].to_date.to_s
         
         core_person_sql = "(#{document_tracker[doc_id][:mother_id]},#{core_person.person_type_id},"
-        core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\"),"
+        core_person_sql += "\"#{core_person.created_at}\",\"#{core_person.updated_at}\"),"
         
         self.write_to_dump("core_person.sql",core_person_sql)
       
@@ -166,10 +166,10 @@ module Lib
         self.write_to_dump("person_addresses.sql",person_address_sql)
         
        puts " PersonAddress created...\n" 
-     #rescue StandardError => e
+     rescue StandardError => e
 
-          #self.log_error(e.message, params)
-     #end
+          self.log_error(e.message, params)
+     end
 
     end
 
@@ -220,7 +220,7 @@ module Lib
 
      
 
-     #begin
+     begin
            
       core_person = CorePerson.new
       core_person.person_type_id     = PersonType.where(name: father_type).last.id
@@ -305,10 +305,10 @@ module Lib
 
         self.write_to_dump("person_addresses.sql",person_address_sql)
 
-     #rescue StandardError => e
+     rescue StandardError => e
 
           self.log_error(e.message, params)
-     #end
+     end
     end
 
     unless father_person.blank?
@@ -342,7 +342,7 @@ def self.new_informant(params,document_tracker)
     informant = params[:person][:informant]
     informant[:citizenship] = 'Malawian' if informant[:citizenship].blank?
     informant[:residential_country] = 'Malawi' if informant[:residential_country].blank?
-  #begin
+  begin
 
     if self.is_twin_or_triplet(params[:person][:type_of_birth].to_s)
 
@@ -509,10 +509,10 @@ def self.new_informant(params,document_tracker)
       self.write_to_dump("person_attribute.sql",person_attribute_sql)
   end
 
-  #rescue StandardError => e
+  rescue StandardError => e
           
-          #self.log_error(e.message, params)        
-  #end
+          self.log_error(e.message, params)        
+  end
      
     informant_person
 end
@@ -596,7 +596,7 @@ def self.new_birth_details(document_tracker, params)
       rel = params[:person][:informant][:relationship_to_person] rescue nil
     end
    
-  #begin
+  begin
 
     details = PersonBirthDetail.new
     details.person_id                     =           person_id
@@ -642,9 +642,9 @@ def self.new_birth_details(document_tracker, params)
     self.write_to_dump("person_birth_details.sql",details_sql)
     
 
-  #rescue StandardError => e
-    #self.log_error(e.message, params)
-  #end
+  rescue StandardError => e
+    self.log_error(e.message, params)
+  end
 
     return details
 
@@ -689,7 +689,7 @@ end
 
     status = nil
     is_record_a_duplicate = params[:person][:duplicate] rescue nil
-    #begin
+   begin
     if is_record_a_duplicate.present?
 
         if params[:person][:is_exact_duplicate].present? && eval(params[:person][:is_exact_duplicate].to_s)
@@ -711,10 +711,10 @@ end
        #status = PersonRecordStatus.new_record_state(person.id, 'DC-ACTIVE')
        status = PersonRecordStatus.new_record_state(person_id, params[:record_status])
     end
-    #rescue StandardError =>e
+    rescue StandardError =>e
 
-        #self.log_error(e.message, params)
-    #end
+        self.log_error(e.message, params)
+    end
 
     return status
   end
