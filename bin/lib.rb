@@ -5,19 +5,19 @@ module Lib
 
   def self.new_child(params,document_tracker)
 
-        core_person = CorePerson.new
-        core_person.person_type_id = PersonType.where(name: 'Client').last.id
-        core_person.created_at = params[:person][:created_at].to_date.strftime("%Y-%m-%d HH:MM:00")
-        core_person.updated_at = params[:person][:updated_at].to_date
+    core_person = CorePerson.new
+    core_person.person_type_id = PersonType.where(name: 'Client').last.id
+    core_person.created_at = params[:person][:created_at].to_date.strftime("%Y-%m-%d HH:MM:00")
+    core_person.updated_at = params[:person][:updated_at].to_date
         #core_person.save
         #@rec_count = @rec_count.to_i + 1
         #person_id = CorePerson.first.person_id.to_i + @rec_count.to_i 
-        person_id = document_tracker[:_id]['client_id']
-        sql_query = "(#{person_id}, #{core_person.person_type_id},\"#{params[:person][:created_at].to_date}\", \"#{params[:person][:updated_at].to_date}\"),"
+    person_id = document_tracker[:_id]['client_id']
+    sql_query = "(#{person_id}, #{core_person.person_type_id},\"#{params[:person][:created_at].to_date}\", \"#{params[:person][:updated_at].to_date}\"),"
         #row = "#{params[:_id]},#{core_person.person_id},"
         
         #save_ids(row)
-        self.write_to_dump("core_person.sql",sql_query)
+    self.write_to_dump("core_person.sql",sql_query)
         
         
    
