@@ -4,7 +4,7 @@ module Lib
   
 
   def self.new_child(params,document_tracker)
-
+     raise "================= #{document_tracker[params[:_id]][:client_id]}".inspect
     core_person = CorePerson.new
     core_person.person_type_id = PersonType.where(name: 'Client').last.id
     core_person.created_at = params[:person][:created_at].to_date.strftime("%Y-%m-%d HH:MM:00")
@@ -51,7 +51,7 @@ module Lib
 
   end
 
-  def self.new_mother(person, params,mother_type, document_tracker)
+  def self.new_mother(params,mother_type, document_tracker)
      
     if self.is_twin_or_triplet(params[:person][:type_of_birth])
       mother_person = Person.find(params[:person][:prev_child_id]).mother

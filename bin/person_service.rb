@@ -2,26 +2,26 @@ module PersonService
   require 'bean'
   require 'json'
 
-  def self.create_record(params)
-    puts "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  def self.create_record(params, document_tracker, used_ids)
+    
     registration_type   = params[:person][:relationship]
-    person  = Lib.new_child(params, @document_tracker)
-    @document_tracker['doc_id']['client_id'] = person.person_id 
-    @used_ids << person.person_id
+    person  = Lib.new_child(params, document_tracker)
+    document_tracker[params[:_id]][:client_id] = person.person_id 
+    used_ids << person.person_id
 
     case registration_type
       when "normal"
-        @document_tracker['doc_id'][:mother_id] = @used_ids.sort.last + 1
-        mother   = Lib.new_mother(person, params, 'Mother', @document_tracker)
-        @used_ids << mother.person_id
+        document_tracker[params[:_id]][:mother_id] = used_ids.sort.last + 1
+        mother   = Lib.new_mother(params, 'Mother', document_tracker)
+        used_ids << mother.person_id
 
-        @document_tracker['doc_id'][:father_id] = @used_ids.sort.last + 1
-        father   = Lib.new_father(person, params,'Father', @document_tracker)
-        @used_ids << father.person_id
+        document_tracker[params[:_id]][:father_id] = used_ids.sort.last + 1
+        father   = Lib.new_father(person,params,'Father', document_tracker)
+        used_ids << father.person_id
 
-        @document_tracker['doc_id'][:infromant_id] = @used_ids.sort.last + 1
-        informant = Lib.new_informant(person, params, @document_tracker)
-        @used_ids << informant.person_id
+        document_tracker[params[:_id]][:infromant_id] = used_ids.sort.last + 1
+        informant = Lib.new_informant(person, params, document_tracker)
+        used_ids << informant.person_id
 
       when "orphaned"
         #mother   = Lib.new_mother(person, params, 'Adoptive-Mother')
@@ -29,13 +29,13 @@ module PersonService
         informant = Lib.new_informant(person, params)
       when "adopted"
         if params[:biological_parents] == "Both" || params[:biological_parents] =="Mother"
-          mother   = Lib.new_mother(person, params, 'Mother')
+          mother   = Lib.new_mother(params, 'Mother', document_tracker)
         end
         if params[:biological_parents] == "Both" || params[:biological_parents] =="Father"
           father   = Lib.new_father(person, params,'Father')
         end
         if params[:foster_parents] == "Both" || params[:foster_parents] =="Mother"
-          adoptive_mother   = Lib.new_mother(person, params, 'Adoptive-Mother')
+          adoptive_mother   = Lib.new_mother(params, 'Adoptive-Mother', document_tracker)
         end
         if params[:foster_parents] == "Both" || params[:foster_parents] =="Mother"
           adoptive_father   = Lib.new_father(person, params,'Adoptive-Father')
@@ -43,7 +43,7 @@ module PersonService
         informant = Lib.new_informant(person, params)
       when "abandoned"
         if params[:parents_details_available] == "Both" || params[:parents_details_available] == "Mother"
-          mother   = Lib.new_mother(person, params, 'Mother')
+          mother   = Lib.new_mother(params, 'Mother', document_tracker)
         end
         if params[:parents_details_available] == "Both" || params[:parents_details_available] == "Father"
           mother   = Lib.new_father(person, params, 'Father')

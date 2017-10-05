@@ -4,7 +4,7 @@ module Lib
   
 
   def self.new_child(params, document_tracker)
-
+        
         core_person = CorePerson.new
         core_person.person_type_id = PersonType.where(name: 'Client').last.id
         core_person.created_at = params[:person][:created_at].to_date.strftime("%Y-%m-%d HH:MM:00")
@@ -13,12 +13,13 @@ module Lib
         #@rec_count = @rec_count.to_i + 1
         #person_id = CorePerson.first.person_id.to_i + @rec_count.to_i 
         person_id = document_tracker[params[:_id]][:client_id]
-
+        
         sql_query = "(#{person_id}, #{core_person.person_type_id},\"#{params[:person][:created_at].to_date}\", \"#{params[:person][:updated_at].to_date}\"),"
         #row = "#{params[:_id]},#{core_person.person_id},"
         
         #save_ids(row)
         self.write_to_dump("core_person.sql",sql_query)
+
         
         
    
@@ -30,11 +31,11 @@ module Lib
     person.updated_at         = params[:person][:updated_at].to_date
      
 
-    person_sql = "(#{person_id},#{person.gender},\"#{person.birthdate}\",\"#{person.created_at}\""
+    person_sql = "(#{person_id},\"#{person.gender}\",\"#{person.birthdate}\",\"#{person.created_at}\""
     person_sql += ",\"#{person.updated_at}\"),"
 
     self.write_to_dump("person.sql", person_sql)
-
+    
     person_name = PersonName.new
     person_name.person_id          = person_id
     person_name.first_name         = params[:person][:first_name]
@@ -51,8 +52,10 @@ module Lib
     return person_id
   end
 
-  def self.new_mother(person, params,mother_type, document_tracker)
-     
+  def self.new_mother(params,mother_type, document_tracker)
+
+    doc_id = params[:_id]
+
     if self.is_twin_or_triplet(params[:person][:type_of_birth])
       mother_person = Person.find(params[:person][:prev_child_id]).mother
     else
@@ -66,50 +69,61 @@ module Lib
         if mother[:first_name].blank?
           return nil
         end
-
-     begin
-
+        
+     #begin
+         
         core_person = CorePerson.new
         core_person.person_type_id     = PersonType.where(name: mother_type).last.id
         core_person.created_at         = params[:person][:created_at].to_date.to_s
         core_person.updated_at         = params[:person][:updated_at].to_date.to_s
         
-        core_person_sql = "(#{document_tracker[params[:id]][:mother_id]},#{core_person.person_type_id}"
-        core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\")"
-
-        self.write_to_dump("core_person_sql",core_person_sql)
+        core_person_sql = "(#{document_tracker[doc_id][:mother_id]},#{core_person.person_type_id},"
+        core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\"),"
+        
+        self.write_to_dump("core_person.sql",core_person_sql)
       
         mother[:citizenship] = 'Malawian' if mother[:citizenship].blank?
         mother[:residential_country] = 'Malawi' if mother[:residential_country].blank?
 
-      puts "Creating mother for: #{person.person_id} Mother_id: #{document_tracker[params[:id]][:mother_id]} >>>>"
+      puts "Creating mother for: #{document_tracker[doc_id][:client_id]} Mother_id: #{document_tracker[doc_id][:mother_id]} >>>>"
 
         mother_person = Person.new
-        mother_person.person_id          = core_person.id
+        mother_person.person_id          = document_tracker[doc_id][:mother_id]
         mother_person.gender             = 'F'
         mother_person.birthdate          = ((mother[:birthdate].to_date.present? rescue false) ? mother[:birthdate].to_date : "1900-01-01")
         mother_person.birthdate_estimated = ((mother[:birthdate].to_date.present? rescue false) ? 0 : 1)
         mother_person.created_at         = params[:person][:created_at].to_date.to_s
         mother_person.updated_at         = params[:person][:updated_at].to_date.to_s
 
-        mother_person_sql = "(#{document_tracker[params[:id]][:mother_id]},#{mother_person.gender},"
+
+        mother_person_sql = "(#{document_tracker[doc_id][:mother_id]},\"#{mother_person.gender}\","
         mother_person_sql += "\"#{mother_person.birthdate}\",\"#{mother_person.birthdate_estimated}\","
-        mother_person_sql += "\"#{mother_person.created_at}\",\"#{mother_person.updated_at}\")"
+        mother_person_sql += "\"#{mother_person.created_at}\",\"#{mother_person.updated_at}\"),"
 
         self.write_to_dump("person.sql",mother_person_sql)
+
         
       puts " Person created...\n"
 
       puts "Creating PersonName for #{core_person.id} ....\n"
-        person_name = PersonName.create(
-            :person_id          => core_person.id,
-            :first_name         => mother[:first_name],
-            :middle_name        => mother[:middle_name],
-            :last_name          => mother[:last_name],
-            :created_at         => params[:person][:created_at].to_date.to_s,
-            :updated_at         => params[:person][:updated_at].to_date.to_s
-        )
-       puts " PersonName created...\n"
+
+        person_name = PersonName.new
+        person_name.person_id          = core_person.id
+        person_name.first_name         = mother[:first_name]
+        person_name.middle_name        = mother[:middle_name]
+        person_name.last_name          = mother[:last_name]
+        person_name.created_at         = params[:person][:created_at].to_date.to_s
+        person_name.updated_at         = params[:person][:updated_at].to_date.to_s
+
+        person_name_sql = "(#{document_tracker[doc_id][:mother_id]},\"#{person_name.first_name}\","
+        person_name_sql += "\"#{person_name.middle_name}\",\"#{person_name.last_name}\",\"#{person_name.created_at}\","
+        person_name_sql += "\"#{person_name.updated_at}\"),"
+
+        self.write_to_dump("person_name.sql",person_name_sql)
+        
+        
+        puts " PersonName created...\n"
+
       
         cur_district_id         = Location.locate_id_by_tag(mother[:current_district], 'District')
         cur_ta_id               = Location.locate_id(mother[:current_ta], 'Traditional Authority', cur_district_id)
@@ -121,59 +135,86 @@ module Lib
         
         puts "Creating personAddress for #{core_person.id}...\n"
       
-        person_address = PersonAddress.create(
-            :person_id          => core_person.id,
-            :current_district   => cur_district_id,
-            :current_ta         => cur_ta_id,
-            :current_village    => cur_village_id,
-            :home_district   => home_district_id,
-            :home_ta            => home_ta_id,
-            :home_village       => home_village_id,
+        person_address = PersonAddress.new
+        person_address.person_id          = core_person.id
+        person_address.current_district   = cur_district_id
+        person_address.current_ta         = cur_ta_id
+        person_address.current_village    = cur_village_id
+        person_address.home_district   = home_district_id
+        person_address.home_ta            = home_ta_id
+        person_address.home_village       = home_village_id
 
-            :current_district_other   => mother[:foreigner_home_district],
-            :current_ta_other         => mother[:foreigner_current_ta],
-            :current_village_other    => mother[:foreigner_current_village],
-            :home_district_other      => mother[:foreigner_home_district],
-            :home_ta_other            => mother[:foreigner_home_ta],
-            :home_village_other       => mother[:foreigner_home_village],
+        person_address.current_district_other   = mother[:foreigner_home_district]
+        person_address.current_ta_other         = mother[:foreigner_current_ta]
+        person_address.current_village_other    = mother[:foreigner_current_village]
+        person_address.home_district_other      = mother[:foreigner_home_district]
+        person_address.home_ta_other            = mother[:foreigner_home_ta]
+        person_address.home_village_other       = mother[:foreigner_home_village]
 
-            :citizenship            => Location.where(country: mother[:citizenship]).last.id,
-            :residential_country    => Location.locate_id_by_tag(mother[:residential_country], 'Country'),
-            :address_line_1         => (params[:informant_same_as_mother].present? && params[:informant_same_as_mother] == "Yes" ? params[:person][:informant][:addressline1] : nil),
-            :address_line_2         => (params[:informant_same_as_mother].present? && params[:informant_same_as_mother] == "Yes" ? params[:person][:informant][:addressline2] : nil),
-            :created_at         => params[:person][:created_at].to_date.to_s,
-            :updated_at         => params[:person][:updated_at].to_date.to_s
-        )
+        person_address.citizenship            = Location.where(country: mother[:citizenship]).last.id
+        person_address.residential_country    = Location.locate_id_by_tag(mother[:residential_country], 'Country')
+        person_address.address_line_1         = (params[:informant_same_as_mother].present? && params[:informant_same_as_mother] == "Yes" ? params[:person][:informant][:addressline1] : nil)
+        person_address.address_line_2         = (params[:informant_same_as_mother].present? && params[:informant_same_as_mother] == "Yes" ? params[:person][:informant][:addressline2] : nil)
+        person_address.created_at         = params[:person][:created_at].to_date.to_s
+        person_address.updated_at         = params[:person][:updated_at].to_date.to_s
+
+        person_address_sql = "(#{document_tracker[doc_id][:mother_id]},#{person_address.current_district},"
+        person_address_sql += "#{person_address.current_ta},#{person_address.current_village},"
+        person_address_sql += "#{person_address.home_district},#{person_address.home_ta},#{person_address.home_village},"
+        person_address_sql += "\"#{person_address.current_district_other}\",\"#{person_address.current_ta_other}\","
+        person_address_sql += "\"#{person_address.current_village_other}\",\"#{person_address.home_district_other}\","
+        person_address_sql += "\"#{person_address.home_ta_other}\",\"#{person_address.home_village_other}\","
+        person_address_sql += "#{person_address.citizenship},#{person_address.residential_country},"
+        person_address_sql += "\"#{person_address.address_line_1}\",\"#{person_address.address_line_2}\","
+        person_address_sql += "\"#{person_address.created_at}\",\"#{person_address.updated_at}\"),"
+
+        self.write_to_dump("person_addresses.sql",person_address_sql)
+        
        puts " PersonAddress created...\n" 
-     rescue StandardError => e
+     #rescue StandardError => e
 
-          self.log_error(e.message, params)
-     end
+          #self.log_error(e.message, params)
+     #end
 
     end
 
     unless mother_person.blank?
-      PersonRelationship.create(
-              person_a: person.id, person_b: mother_person.person_id,
-              person_relationship_type_id: PersonRelationType.where(name: mother_type).last.id,
-              created_at: params[:person][:created_at].to_date.to_s,
-              updated_at: params[:person][:updated_at].to_date.to_s
-      )
+      person_relationship = PersonRelationship.new
+      person_relationship.person_a                    = document_tracker[doc_id][:client_id]
+      person_relationship.person_b                    = document_tracker[doc_id][:mother_id]
+      person_relationship.person_relationship_type_id = PersonRelationType.where(name: mother_type).last.id
+      person_relationship.created_at                  = params[:person][:created_at].to_date.to_s
+      person_relationship.updated_at                  = params[:person][:updated_at].to_date.to_s
+
+      person_relationship_sql = "(#{document_tracker[doc_id][:client_id]},#{document_tracker[doc_id][:mother_id]},"
+      person_relationship_sql += "#{person_relationship.person_relationship_type_id},\"#{person_relationship.created_at}\","
+      person_relationship_sql += "\"#{person_relationship.updated_at}\"),"
+    
+      self.write_to_dump("person_relationship.sql",person_relationship_sql)
+
     end
 
-    puts "Mother record for client: #{person.person_id} created..."
-
+    puts "Mother record for client: #{person_relationship.person_a} created..."
+     
     mother_person
   end
 
-  def self.new_father(person, params, father_type)
+  def self.new_father(params, father_type,document_tracker)
+       
+     doc_id = params[:_id]
+     
     if self.is_twin_or_triplet(params[:person][:type_of_birth].to_s)
+
       father_person = Person.find(params[:person][:prev_child_id]).father
     else
+
       if father_type =="Adoptive-Father"
+
         father = params[:person][:foster_father]
       else
+
         father = params[:person][:father]
+        
       end
       father[:citizenship] = 'Malawian' if father[:citizenship].blank?
       father[:residential_country] = 'Malawi' if father[:residential_country].blank?
@@ -182,14 +223,21 @@ module Lib
         return nil
       end
 
-     begin
+     
 
-      core_person = CorePerson.create(
-          :person_type_id     => PersonType.where(name: father_type).last.id,
-          :created_at         => params[:person][:created_at].to_date.to_s,
-          :updated_at         => params[:person][:updated_at].to_date.to_s
-      )
-    
+     #begin
+           
+      core_person = CorePerson.new
+      core_person.person_type_id     = PersonType.where(name: father_type).last.id
+      core_person.created_at         = params[:person][:created_at].to_date.to_s
+      core_person.updated_at         = params[:person][:updated_at].to_date.to_s
+      
+      core_person_sql = "(#{document_tracker[doc_id][:father_id]},#{core_person.person_type_id},"
+      core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\"),"
+        
+      self.write_to_dump("core_person.sql",core_person_sql)
+      
+
       father_person = Person.create(
           :person_id          => core_person.id,
           :gender             => 'F',
@@ -240,10 +288,10 @@ module Lib
           :created_at         => params[:person][:created_at].to_date.to_s,
           :updated_at         => params[:person][:updated_at].to_date.to_s
       )
-     rescue StandardError => e
+     #rescue StandardError => e
 
           self.log_error(e.message, params)
-     end
+     #end
     end
 
     unless father_person.blank?
@@ -261,28 +309,32 @@ module Lib
 
   end
 
-def self.new_informant(person, params)
-
+def self.new_informant(params,document_tracker)
+    doc_id = params[:_id]
     informant_person = nil; core_person = nil
 
     informant = params[:person][:informant]
     informant[:citizenship] = 'Malawian' if informant[:citizenship].blank?
     informant[:residential_country] = 'Malawi' if informant[:residential_country].blank?
-  begin
+  #begin
+
     if self.is_twin_or_triplet(params[:person][:type_of_birth].to_s)
+
       informant_person = Person.find(params[:person][:prev_child_id]).informant
     elsif params[:informant_same_as_mother] == 'Yes'
-
+          
       if params[:person][:relationship] == "adopted"
-          informant_person = person.adoptive_mother
+          informant_person = params[:person][:adoptive_mother]
       else
-         informant_person = person.mother
+         informant_person = params[:person][:mother]
+
       end
     elsif params[:informant_same_as_father] == 'Yes'
+      
       if params[:person][:relationship] == "adopted"
-          informant_person = person.adoptive_father
+          informant_person = params[:person][:adoptive_father]
       else
-         informant_person = person.father
+         informant_person = params[:person][:father]
       end
     else
     
@@ -337,13 +389,39 @@ def self.new_informant(person, params)
   
 
     end
+   
+  if params[:informant_same_as_father] == 'Yes'
 
-    PersonRelationship.create(
-        person_a: person.id, person_b: informant_person.id,
-        person_relationship_type_id: PersonRelationType.where(name: 'Informant').last.id,
-        created_at: params[:person][:created_at].to_date.to_s,
-        updated_at: params[:person][:updated_at].to_date.to_s
-    )
+      person_relationship = PersonRelationship.new
+      person_relationship.person_a                    = document_tracker[doc_id][:client_id] 
+      person_relationship.person_b                    = document_tracker[doc_id][:father_id] 
+      person_relationship.person_relationship_type_id = PersonRelationType.where(name: 'Informant').last.id
+      person_relationship.updated_at                  = params[:person][:created_at].to_date.to_s
+      person_relationship.updated_at                  = params[:person][:updated_at].to_date.to_s
+
+      person_relationship_sql = "(#{document_tracker[doc_id][:client_id]},#{document_tracker[doc_id][:father_id]},"
+      person_relationship_sql += "#{person_relationship.person_relationship_type_id},\"#{person_relationship.created_at}\","
+      person_relationship_sql += "\"#{person_relationship.updated_at}\"),"
+    
+      self.write_to_dump("person_relationship.sql",person_relationship_sql)      
+  end
+  if params[:informant_same_as_mother] == 'Yes'
+
+      person_relationship = PersonRelationship.new
+      person_relationship.person_a                    = document_tracker[doc_id][:client_id] 
+      person_relationship.person_b                    = document_tracker[doc_id][:mother_id] 
+      person_relationship.person_relationship_type_id = PersonRelationType.where(name: 'Informant').last.id
+      person_relationship.updated_at                  = params[:person][:created_at].to_date.to_s
+      person_relationship.updated_at                  = params[:person][:updated_at].to_date.to_s
+
+      person_relationship_sql = "(#{document_tracker[doc_id][:client_id]},#{document_tracker[doc_id][:mother_id]},"
+      person_relationship_sql += "#{person_relationship.person_relationship_type_id},\"#{person_relationship.created_at}\","
+      person_relationship_sql += "\"#{person_relationship.updated_at}\"),"
+    
+      self.write_to_dump("person_relationship.sql",person_relationship_sql)
+      
+      raise "============Up in here now...#{informant_person}".inspect 
+  end
 
     puts "Informant record for client: #{person.person_id} created..."
 
@@ -358,10 +436,10 @@ def self.new_informant(person, params)
       )
     end
 
-  rescue StandardError => e
+  #rescue StandardError => e
           
           self.log_error(e.message, params)        
-  end
+  #end
 
     informant_person
 end

@@ -4,10 +4,12 @@ module PersonService
 
   def self.create_record(params, document_tracker, used_ids)
     doc_id = params[:_id]
+
     registration_type   = params[:person][:relationship]
     person_id  = Lib.new_child(params, document_tracker)
     document_tracker[doc_id][:client_id] = person_id 
     used_ids << person_id
+
     
     case registration_type
       when "normal"
@@ -16,11 +18,13 @@ module PersonService
         used_ids << mother.person_id
 
         document_tracker[doc_id][:father_id] = used_ids.sort.last + 1
-        father   = Lib.new_father(person, params,'Father', document_tracker)
-        used_ids << father.person_id
+        father   = Lib.new_father(params,'Father', document_tracker)
+        unless father.blank?
+          used_ids << father.person_id
+        end
 
-        document_tracker[doc_id][:infromant_id] = used_ids.sort.last + 1
-        informant = Lib.new_informant(person, params, document_tracker)
+        document_tracker[doc_id][:informant_id] = used_ids.sort.last + 1
+        informant = Lib.new_informant(params, document_tracker)
         used_ids << informant.person_id
         
       when "orphaned"

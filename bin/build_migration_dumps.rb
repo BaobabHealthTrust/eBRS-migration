@@ -295,6 +295,8 @@ def build_person_address_sql(record, type)
   `echo -n '#{sql}' >> #{@dump_files}person_addresses.sql`
 end
 
+def build_person_birth_details_sql()
+
 def build_person_relationship_sql(record, person_type)
  person_type_id = PersonRelationType.where(name: person_type).last.id
    if person_type == 'Mother'
@@ -421,6 +423,7 @@ def initiate_sql_dump_build(record, doc_id)
   build_core_person_sql(record)
   build_person_sql(record)
   build_person_name_sql(record)
+  build_person_birth_details_sql(record)
 
 
   case registration_type
