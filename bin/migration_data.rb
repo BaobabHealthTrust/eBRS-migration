@@ -580,7 +580,7 @@ def build_client_record(current_pge, pge_size)
               foreigner_home_village: r[:foreigner_home_village],
               foreigner_home_ta: r[:foreigner_home_ta]
               },
-              foster_father: {
+            foster_father: {
               id_number: r[:id_number],
               first_name: r[:first_name],
               middle_name: r[:middle_name],

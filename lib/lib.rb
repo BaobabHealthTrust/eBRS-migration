@@ -228,7 +228,7 @@ module Lib
       core_person.updated_at         = params[:person][:updated_at].to_date.to_s
       
       core_person_sql = "(#{document_tracker[doc_id][:father_id]},#{core_person.person_type_id},"
-      core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\"),"
+      core_person_sql += "\"#{core_person.created_at}\",\"#{core_person.updated_at}\"),"
         
       self.write_to_dump("core_person.sql",core_person_sql)
       
@@ -371,7 +371,7 @@ def self.new_informant(params,document_tracker)
       core_person.updated_at     = params[:person][:updated_at].to_date.to_s
       
       core_person_sql = "(#{document_tracker[doc_id][:informant_id]},#{core_person.person_type_id},"
-      core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\"),"
+      core_person_sql += "\"#{core_person.created_at}\",\"#{core_person.updated_at}\"),"
         
       self.write_to_dump("core_person.sql",core_person_sql)
 

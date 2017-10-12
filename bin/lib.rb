@@ -7,16 +7,16 @@ module Lib
      raise "================= #{document_tracker[params[:_id]][:client_id]}".inspect
     core_person = CorePerson.new
     core_person.person_type_id = PersonType.where(name: 'Client').last.id
-    core_person.created_at = params[:person][:created_at].to_date.strftime("%Y-%m-%d HH:MM:00")
+    core_person.created_at = params[:person][:created_at].to_date
     core_person.updated_at = params[:person][:updated_at].to_date
         #core_person.save
         #@rec_count = @rec_count.to_i + 1
         #person_id = CorePerson.first.person_id.to_i + @rec_count.to_i 
     person_id = document_tracker[:_id]['client_id']
     sql_query = "(#{person_id}, #{core_person.person_type_id},\"#{params[:person][:created_at].to_date}\", \"#{params[:person][:updated_at].to_date}\"),"
-        #row = "#{params[:_id]},#{core_person.person_id},"
+    row = "#{params[:_id]},#{person_id},"
         
-        #save_ids(row)
+    save_ids(row)
     self.write_to_dump("core_person.sql",sql_query)
         
         
@@ -75,7 +75,7 @@ module Lib
         core_person.updated_at         = params[:person][:updated_at].to_date.to_s
         
         core_person_sql = "(#{document_tracker[params[:id]][:mother_id]},#{core_person.person_type_id}"
-        core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\")"
+        core_person_sql += "\"#{core_person.created_at},\"#{core_person.updated_at}\"),"
 
         self.write_to_dump("core_person.sql",core_person_sql)
       
@@ -94,7 +94,7 @@ module Lib
 
         mother_person_sql = "(#{document_tracker[params[:id]][:mother_id]},#{mother_person.gender},"
         mother_person_sql += "\"#{mother_person.birthdate}\",\"#{mother_person.birthdate_estimated}\","
-        mother_person_sql += "\"#{mother_person.created_at}\",\"#{mother_person.updated_at}\")"
+        mother_person_sql += "\"#{mother_person.created_at}\",\"#{mother_person.updated_at}\"),"
 
         self.write_to_dump("person.sql",mother_person_sql)
         
@@ -482,7 +482,7 @@ def self.new_birth_details(person, params)
 
 end
 
-  def self.birth_details_multiple(person,params)
+def self.birth_details_multiple(person,params)
     
     prev_details = PersonBirthDetail.where(person_id: params[:person][:prev_child_id].to_s).first
     
@@ -512,9 +512,9 @@ end
     end
 
     return details
-  end
+end
 
-  def self.workflow_init(person,params)
+def self.workflow_init(person,params)
     
     status = nil
     is_record_a_duplicate = params[:person][:duplicate] rescue nil
@@ -545,9 +545,9 @@ end
     end
 
     return status
-  end
+end
 
-  def self.log_error(error_msge, content)
+def self.log_error(error_msge, content)
 
     file_path = "#{Rails.root}/app/assets/data/error_log.txt"
     if !File.exists?(file_path)
@@ -560,9 +560,9 @@ end
       end
     end
 
-  end
+end
 
-  def self.save_ids(content)
+def self.save_ids(content)
     
      file_path = "#{Rails.root}/app/assets/data/person.csv"
      if !File.exists?(file_path)
@@ -572,14 +572,14 @@ end
          f.puts "#{content}"
        end
      end
-  end
+end
 
-  def self.write_to_dump(filename,content)
+def self.write_to_dump(filename,content)
      
      `echo -n '#{content}' >> #{Rails.root}/app/assets/data/migration_dumps/#{filename}`    
-  end
+end
   
-  def self.is_twin_or_triplet(type_of_birth)
+def self.is_twin_or_triplet(type_of_birth)
     if type_of_birth == "Second Twin" 
       return true 
     elsif type_of_birth == "Second Triplet" 
