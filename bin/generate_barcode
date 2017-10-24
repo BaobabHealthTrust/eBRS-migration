@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'barby'
+require 'barby/barcode/code_128'
+require 'barby/outputter/rmagick_outputter'
+require 'rqrcode'
+
+if ARGV.length > 2
+
+  #(1..10).each{|i| `bin/generate_barcode #{"%08d" % i} barcode#{i} tmp/`}
+  # 0 Content
+  # 1 filename
+  # 2 directory_name
+
+  barcode = Barby::Code128B.new(ARGV[0])
+
+	file = File.open("#{ARGV[2]}/#{ARGV[1]}.png", "wb")
+	
+	file.write barcode.to_png(:height => 50, :xdim => 2)
+
+  file.close
+
+
+else 
+
+	puts "\n\n\tUsage:\n\t\texpected: #{__FILE__}/ BARCODE_VALUE FILE_NAME PATH_NAME\n\n\n"
+
+end

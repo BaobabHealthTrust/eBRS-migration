@@ -58,6 +58,19 @@ class Person < ActiveRecord::Base
     "#{name.first_name} #{name.middle_name} #{name.last_name}".gsub(/\s+/, ' ')
   end
 
+  def printable_name
+    name = self.person_names.last
+    if (name.first_name.length + (name.middle_name.length rescue 0) + name.last_name.length) >= 40
+      if name.middle_name.present? && name.middle_name.length > 0
+        "#{name.first_name} #{name.middle_name.first + '.'} #{name.last_name}".gsub(/\s+/, ' ')
+      else
+        "#{name.first_name} #{name.last_name}".gsub(/\s+/, ' ')
+      end  
+    else
+      "#{name.first_name} #{name.middle_name} #{name.last_name}".gsub(/\s+/, ' ')
+    end    
+  end  
+
   def full_gender
     {'M' => 'Male', 'F' => 'Female'}[self.gender]
   end

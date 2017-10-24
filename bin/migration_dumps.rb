@@ -125,7 +125,7 @@ def build_client_record(current_pge, pge_size)
 					   controller: "person",
 					   action: "create"
 					  }
-			
+			puts "#{data[:_id]}"
             #@@core_person_counter = @@core_person_counter.to_i + 1
             #initiate_sql_dump_build(data)
 			#transform_record(data)

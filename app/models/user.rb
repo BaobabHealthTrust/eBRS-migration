@@ -17,8 +17,7 @@ class User < ActiveRecord::Base
   before_save do |pass|
     check_password = BCrypt::Password.new(self.password_hash) rescue 'invalid hash'
     self.password_hash = BCrypt::Password.create(self.password_hash) if (check_password == 'invalid hash')
-    self.creator = 'admin' if self.creator.blank?
-    self.location_id = SETTINGS['location_id']
+    self.location_id = SETTINGS['location_id'] if self.location_id.blank?
   end
 
   def password_matches?(plain_password)

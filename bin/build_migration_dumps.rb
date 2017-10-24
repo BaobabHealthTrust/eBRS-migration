@@ -1,22 +1,21 @@
+require'migration-lib/lib'
+require'migration-lib/person_service'
 @dump_files = "#{Rails.root}/app/assets/data/migration_dumps/"
-@core_person_counter               = 0
-@mother_core_person_counter        = 0
-@father_core_person_counter        = 0
-@informant_core_person_counter     = 0
-@foster_mother_core_person_counter = 0
-@foster_father_core_person_counter = 0
+@@core_person_counter = CorePerson.first.person_id
+@@mother_core_person_counter = 0
+@@father_core_person_counter = 0
+@@informant_core_person_counter = 0
 
-@document_tracker = {}
-@used_ids         = []
+User.current = User.last
 
 def prepare_dump_files
 
 	core_person ="INSERT INTO core_person (person_id,person_type_id,created_at,updated_at) VALUES "
-	person = "INSERT INTO person (person_id, gender, created_at, updated_at) VALUES "
-	person_name = "INSERT INTO person_name(person_id, first_name, middle_name, last_name, created_at, updated_at) VALUES "
+	person = "INSERT INTO person () VALUES "
+	person_name = "INSERT INTO person_name () VALUES "
 	person_identifier = "INSERT INTO person_identifier () VALUES "
 	person_addresses = "INSERT INTO person_addresses () VALUES ()"
-	person_relationship = "INSERT INTO person_relationship (person_a, person_b, person_relationship_type_id, created_at, updated_at) VALUES "
+	person_relationship = "INSERT INTO person_relationship () VALUES "
 	person_attribute = "INSERT INTO person_attribute () VALUES "
 	person_birth_details = "INSERT INTO person_birth_details () VALUES "
 	potential_duplicate = "INSERT INTO potential_duplicate () VALUES "
@@ -42,7 +41,7 @@ def build_client_record(current_pge, pge_size)
 
   data ={}
 
-  records = Child.all.page(current_pge).per(pge_size)
+  records = Child.all.page(current_pge).limit(pge_size)
  
 
   (records || []).each do |r|
@@ -59,6 +58,7 @@ def build_client_record(current_pge, pge_size)
 					   hospital_of_birth: r[:hospital_of_birth],
 					   birth_weight: r[:birth_weight],
 					   type_of_birth: r[:type_of_birth],
+					   national_serial_number: r[:national_serial_number],
 					   parents_married_to_each_other: r[:parents_married_to_each_other],
 					   date_of_marriage: r[:date_of_marriage],
 					   court_order_attached: r[:court_order_attached],
@@ -112,6 +112,7 @@ def build_client_record(current_pge, pge_size)
 					   number_of_children_born_still_alive: r[:number_of_children_born_still_alive],
 					   same_address_with_mother: "",
 					   informant_same_as_mother: (r[:informant][:relationship_to_child] == "Mother" ? "Yes" : "No"),
+					   informant_same_as_father: (r[:informant][:relationship_to_child] == "Father" ? "Yes" : "No"),
 					   registration_type: r[:relationship],
 					   record_status: r[:record_status],
 					   _rev: r[:_rev],
@@ -124,13 +125,12 @@ def build_client_record(current_pge, pge_size)
 					   controller: "person",
 					   action: "create"
 					  }
-            
-            #@core_person_counter += 1
-            initiate_sql_dump_build(data, r['_id'])
-			      #transform_record(data)
-			      #pre_migration_check(data)
-            puts "....................................... Built: #{(@record_count+=1)} of #{@total_records}"
-        end
+			puts "#{data[:_id]}"
+            #@@core_person_counter = @@core_person_counter.to_i + 1
+            #initiate_sql_dump_build(data)
+			#transform_record(data)
+			#pre_migration_check(data)
+   end
 
 end
 
@@ -138,15 +138,17 @@ def pre_migration_check(data)
 
 end
 
-def build_core_person_sql(record, person_type = 'Client')
+def build_core_person_sql(record, person_type)
+
+    person_id = nil
     if person_type == 'Mother'
-       person_id = @mother_core_person_counter
+       person_id = @@mother_core_person_counter
     elsif person_type == 'Father'
-    	person_id = @father_core_person_counter
+    	person_id = @@father_core_person_counter
     elsif person_type == 'Client'
-    	person_id = @document_tracker[record[:_id]][:client_id]
+    	person_id = @@core_person_counter
     else
-    	person_id = @informant_core_person_counter
+    	person_id = @@informant_core_person_counter
     end
 
 	sql = "(#{person_id}, #{PersonType.where(name: "#{person_type}").last.id},"
@@ -155,342 +157,162 @@ def build_core_person_sql(record, person_type = 'Client')
     `echo -n '#{sql}' >> #{@dump_files}core_person.sql`
 end
 
-def build_person_sql(record, type = 'Client')
-   doc_id = record[:_id]
-   if type == 'Client'
-    person_id = @document_tracker[doc_id][:client_id]
-   elsif type == 'Father'
-    person_id = @document_tracker[doc_id][:father_id]
-   elsif type == 'Mother'
-    person_id = @document_tracker[doc_id][:mother_id]
-   elsif type == 'Informant'
-    person_id = @document_tracker[doc_id][:informant_id]
-   end
+def build_person_sql(record)
 
-
-
-   if type == 'Client'
-    sql = "(#{person_id},\"#{record[:person][:gender]}\",\"#{record[:person][:birthdate].to_date}\","
-    sql += "\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-   elsif type == 'Mother'
-     if record[:person][:mother][:birthdate_estimated].blank?
-       record[:person][:mother][:birthdate] = '1900-01-01'
-       record[:person][:mother][:birthdate_estimated] = 1
-     end
-
-    sql = "(#{person_id},\"#{'Female'}\",\"#{record[:person][:mother][:birthdate].to_date}\","
-    sql += "\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-   elsif type == 'Father'
-     if record[:person][:father][:birthdate_estimated].blank?
-       record[:person][:father][:birthdate] = '1900-01-01'
-       record[:person][:father][:birthdate_estimated] = 1
-     end
-
-      sql = "(#{person_id},\"#{'Male'}\",\"#{record[:person][:father][:birthdate].to_date}\","
-      sql += "\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-   elsif type == 'Adoptive-Mother'
-     if record[:person][:foster_mother][:birthdate_estimated].blank?
-       record[:person][:foster_mother][:birthdate] = '1900-01-01'
-       record[:person][:foster_mother][:birthdate_estimated] = 1
-     end
-
-    sql = "(#{person_id},\"#{'Female'}\",\"#{record[:person][:foster_mother][:birthdate].to_date}\","
-    sql += "\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-   elsif type == 'Adoptive-Father'
-     if record[:person][:foster_father][:birthdate_estimated].blank?
-       record[:person][:foster_father][:birthdate] = '1900-01-01'
-       record[:person][:foster_father][:birthdate_estimated] = 1
-     end
-
-    sql = "(#{person_id},\"#{'Male'}\",\"#{record[:person][:foster_father][:birthdate].to_date}\","
-    sql += "\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-   elsif type == 'Informant'
-     if record[:person][:informant][:birthdate_estimated].blank?
-       record[:person][:informant][:birthdate] = '1900-01-01'
-       record[:person][:informant][:birthdate_estimated] = 1
-     end
-
-    sql = "(#{person_id},\"#{record[:person][:informant][:gender]}\",\"#{record[:person][:informant][:birthdate].to_date}\","
-    sql += "\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-   end
+   sql = "(#{@@core_person_counter},\"#{record[:person][:gender]}\",\"#{record[:person][:birthdate].to_date}\","
+   sql += "\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
   
    `echo -n '#{sql}' >> #{@dump_files}person.sql`
 end
 
-  def build_person_name_sql(record, person_type = 'Client')
-     doc_id = record[:_id]
-     if person_type == 'Client'
-      person_id = @document_tracker[doc_id][:client_id]
-     elsif person_type == 'Father'
-      person_id = @document_tracker[doc_id][:father_id]
-     elsif person_type == 'Mother'
-      person_id = @document_tracker[doc_id][:mother_id]
-     elsif person_type == 'Informant'
-      person_id = @document_tracker[doc_id][:informant_id]
-     end
-
+def build_person_name_sql(record,person_type)
 
     if person_type == 'Client'
-       sql = "(#{person_id},\"#{record[:person][:first_name]}\",\"#{record[:person][:middle_name]}\","
+       sql = "(#{@@core_person_counter},\"#{record[:person][:first_name]}\",\"#{record[:person][:middle_name]}\","
        sql += "\"#{record[:person][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
     elsif person_type == 'Mother'
-    	sql = "(#{person_id},\"#{record[:person][:mother][:first_name]}\",\"#{record[:person][:mother][:middle_name]}\","
-      sql += "\"#{record[:person][:mother][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-    elsif person_type == 'Father'
-    	sql = "(#{person_id},\"#{record[:person][:father][:first_name]}\",\"#{record[:person][:father][:middle_name]}\","
-      sql += "\"#{record[:person][:father][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-    elsif person_type == 'Adoptive-Mother'
-    	sql = "(#{person_id},\"#{record[:person][:foster_mother][:first_name]}\",\"#{record[:person][:foster_mother][:middle_name]}\","
-      sql += "\"#{record[:person][:foster_mother][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
-    elsif person_type == 'Adoptive-Father'
-    	sql = "(#{person_id},\"#{record[:person][:foster_father][:first_name]}\",\"#{record[:person][:foster_father][:middle_name]}\","
-      sql += "\"#{record[:person][:foster_father][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
+    	sql = "(#{@@core_person_counter},\"#{record[:person][:mother][:first_name]}\",\"#{record[:person][:mother][:middle_name]}\","
+        sql += "\"#{record[:person][:mother][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
     else 
-    	sql = "(#{person_id},\"#{record[:person][:informant][:first_name]}\",\"#{record[:person][:informant][:middle_name]}\","
-      sql += "\"#{record[:person][:informant][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
+    	sql = "(#{@@core_person_counter},\"#{record[:person][:father][:first_name]}\",\"#{record[:person][:father][:middle_name]}\","
+        sql += "\"#{record[:person][:father][:last_name]}\",\"#{record[:person][:created_at]}\",\"#{record[:person][:updated_at]}\"),"
     end
 
-    begin
-      `echo -n '#{sql}' >> #{@dump_files}person_name.sql`
-    rescue
-    end
+    `echo -n '#{sql}' >> #{@dump_files}person_name.sql`
 end
 
-def build_person_address_sql(record, type)
-   doc_id = record[:_id]
-   if type == 'Client'
-    person_id = @document_tracker[doc_id][:client_id]
-   elsif type == 'Father'
-    person_id = @document_tracker[doc_id][:father_id]
-   elsif type == 'Mother'
-    person_id = @document_tracker[doc_id][:mother_id]
-   elsif type == 'Informant'
-    person_id = @document_tracker[doc_id][:informant_id]
-   end
+def build_person_address_sql(record, person_type)
 
-  cur_district_id         = Location.locate_id_by_tag(record[:current_district], 'District')
-  cur_ta_id               = Location.locate_id(record[:current_ta], 'Traditional Authority', cur_district_id)
-  cur_village_id          = Location.locate_id(record[:current_village], 'Village', cur_ta_id)
-
-  home_district_id        = Location.locate_id_by_tag(record[:home_district], 'District')
-  home_ta_id              = Location.locate_id(record[:home_ta], 'Traditional Authority', home_district_id)
-  home_village_id         = Location.locate_id(record[:home_village], 'Village', home_ta_id)
-
-  citizenship            = Location.where(country: record[:citizenship]).last.id
-  residential_country    = Location.locate_id_by_tag(record[:residential_country], 'Country')
-  address_line_1         = (record[:informant_same_as_mother].present? && record[:informant_same_as_mother] == "Yes" ? record[:person][:informant][:addressline1] : nil)
-  address_line_2         = (record[:informant_same_as_mother].present? && record[:informant_same_as_mother] == "Yes" ? record[:person][:informant][:addressline2] : nil)
-
-  created_at         = record[:person][:created_at].to_date
-  updated_at         = record[:person][:updated_at].to_date
-
-
-  sql = "(#{person_id},#{cur_district_id},#{cur_ta_id},#{cur_village_id},#{home_district_id},"
-  sql += "#{home_ta_id},#{home_village_id},\"#{record[:person][:mother][:foreigner_home_district]}\","
-  sql += "\"#{record[:person][:mother][:foreigner_current_ta]}\",\"#{record[:person][:mother][:foreigner_current_village]}\","
-  sql += "\"#{record[:person][:mother][:foreigner_home_district]}\",\"#{record[:person][:mother][:foreigner_home_ta]}\","
-  sql += "\"#{record[:person][:mother][:foreigner_home_village]}\",#{citizenship},#{residential_country},"
-  sql += "\"#{address_line_1}\",\"#{address_line_2}\",\"#{created_at}\",\"#{updated_at}\"),"
-
-  `echo -n '#{sql}' >> #{@dump_files}person_addresses.sql`
-end
-
-def build_person_birth_details_sql()
-
-def build_person_relationship_sql(record, person_type)
- person_type_id = PersonRelationType.where(name: person_type).last.id
-   if person_type == 'Mother'
-    person_b = @mother_core_person_counter
-   elsif person_type == 'Father'
-    person_b = @father_core_person_counter
-   else
-    person_b = @informant_core_person_counter
-   end
-
-  doc_id = record[:_id]
-  person_a = @document_tracker[doc_id][:client_id]
-   
-  sql = "(#{person_a},#{person_b},#{person_type_id},"
-  sql += "\"#{record[:person][:created_at].to_date}\",\"#{record[:person][:updated_at].to_date}\"),"
-
- `echo -n '#{sql}' >> #{@dump_files}person_relationship.sql`
-end
-
-def build_informant_relationship(record, person_type)
-   person_type_id = PersonRelationType.where(name: 'Informant').last.id
-   doc_id = record[:_id]
-
-   if person_type == 'Mother'
-    person_b = @document_tracker[doc_id][:mother_id]
-   elsif person_type == 'Father'
-    person_b = @document_tracker[doc_id][:father_id]
-   else
-    person_b = @document_tracker[doc_id][:informant_id]
-    puts "########################################### #{person_b}"
-   end
-
-  person_a = @document_tracker[doc_id][:client_id]
-  sql = "(#{person_a},#{person_b},#{person_type_id},"
-  sql += "\"#{record[:person][:created_at].to_date}\",\"#{record[:person][:updated_at].to_date}\"),"
-
- `echo -n '#{sql}' >> #{@dump_files}person_relationship.sql`
-end
-
-def mother_record(record, mother_type, doc_id)
-  document = Child.find(doc_id)
-
-  mother_first_name = document.mother.first_name rescue nil
-  return if mother_first_name.blank?
-  type = 'Mother'
-
-  @mother_core_person_counter = @used_ids.sort.last + 1
-  @used_ids << @mother_core_person_counter
-  @document_tracker[doc_id][:mother_id] = @mother_core_person_counter
-
-  build_core_person_sql(record, type)
-  build_person_sql(record, type)
-  build_person_name_sql(record, type)
-  build_person_address_sql(record, type)
-  build_person_relationship_sql(record, type)
-end
-
-def father_record(record, father_type, doc_id)
-  document = Child.find(doc_id)
-
-  father_first_name = document.father.first_name rescue nil
-  return if father_first_name.blank?
-
-  @father_core_person_counter = @used_ids.sort.last + 1
-  @used_ids << @father_core_person_counter
-  @document_tracker[doc_id][:father_id] = @father_core_person_counter
-
-  build_core_person_sql(record, 'Father')
-  build_person_sql(record, 'Father')
-  build_person_name_sql(record,"Father")
-  build_person_address_sql(record, 'Father')
-  build_person_relationship_sql(record, 'Father')
-end
-
-
-
-def informant_record(record, doc_id)
-  document = Child.find(doc_id)
-
-  relationship_to_child = document.informant.relationship_to_child rescue nil
-  return if relationship_to_child.blank?
-
-  if relationship_to_child.match(/Adoptive/i)
-    if relationship_to_child.match(/Mother/i)
-      build_informant_relationship(record, 'Adoptive-Mother')
-      return
-    elsif relationship_to_child.match(/Father/i)
-      build_informant_relationship(record, 'Adoptive-Father')
-      return
-    end
-  elsif relationship_to_child.match(/Mother/i)
-    build_informant_relationship(record, 'Mother')
-    return
-  elsif relationship_to_child.match(/Father/i)
-    build_informant_relationship(record, 'Father')
-    return
-  end
-
-  relationship_to_child = 'Informant' if relationship_to_child.match(/Other/i)
-  @informant_core_person_counter = @used_ids.sort.last + 1
-  @used_ids << @informant_core_person_counter
-  @document_tracker[doc_id][:informant_id] = @informant_core_person_counter
-
-  build_core_person_sql(record, relationship_to_child)
-  build_person_sql(record, relationship_to_child)
-  build_person_name_sql(record, relationship_to_child)
-  build_person_address_sql(record, relationship_to_child)
-  build_informant_relationship(record, 'Informant')
-end
-
-def initiate_sql_dump_build(record, doc_id)
-  client = Child.find(doc_id)
-
-  @document_tracker[doc_id] = {
-    client_id: ((@used_ids.sort.last + 1) rescue 1),
-    mother_id: nil,
-    father_id: nil,
-    informant_id: nil
-  }
-
-  @used_ids << @document_tracker[doc_id][:client_id]
-
-  registration_type  = record[:person][:relationship]
-  build_core_person_sql(record)
-  build_person_sql(record)
-  build_person_name_sql(record)
-  build_person_birth_details_sql(record)
-
-
-  case registration_type
-    when "normal"
-      unless client.mother.blank?
-        mother_record(record,"Mother", doc_id)
-      end
-
-      unless client.father.blank?
-        father_record(record,"Father", doc_id)
-      end
-
-      unless client.informant.blank?
-        informant_record(record, doc_id)
-      end
-
-    when "orphaned"
-      informant_record(record, doc_id)
-    when "adopted" || "abandoned"
-      if record[:biological_parents] == "Both" || record[:biological_parents] =="Mother"
-        mother_record(person, 'Mother')
-      end
-      
-      if record[:biological_parents] == "Both" || record[:biological_parents] =="Father"
-        father_record(record, 'Father')
-      end
-      
-      if params[:foster_parents] == "Both"
-        mother_record(person, 'Adoptive-Mother')
-        father_record(record, 'Adoptive-Father')
-      end
-
-      if params[:foster_parents] =="Mother"
-        mother_record(person, 'Adoptive-Mother')
-      end
-      
-      if params[:foster_parents] =="Father"
-        mother_record(person, 'Adoptive-Father')
-      end
+	cur_district_id         = Location.locate_id_by_tag(record[:current_district], 'District')
+    cur_ta_id               = Location.locate_id(record[:current_ta], 'Traditional Authority', cur_district_id)
+    cur_village_id          = Location.locate_id(record[:current_village], 'Village', cur_ta_id)
         
-      informant_record(record, doc_id)
+    home_district_id        = Location.locate_id_by_tag(record[:home_district], 'District')
+    home_ta_id              = Location.locate_id(record[:home_ta], 'Traditional Authority', home_district_id)
+    home_village_id         = Location.locate_id(record[:home_village], 'Village', home_ta_id)
 
-  else
-  end
+    citizenship            = Location.where(country: record[:citizenship]).last.id
+    residential_country    = Location.locate_id_by_tag(record[:residential_country], 'Country')
+    address_line_1         = (record[:informant_same_as_mother].present? && record[:informant_same_as_mother] == "Yes" ? record[:person][:informant][:addressline1] : nil)
+    address_line_2         = (record[:informant_same_as_mother].present? && record[:informant_same_as_mother] == "Yes" ? record[:person][:informant][:addressline2] : nil)
+
+    created_at         = record[:person][:created_at].to_date
+    updated_at         = record[:person][:updated_at].to_date
+
+
+    sql = "(#{@@core_person_counter},#{cur_district_id},#{cur_ta_id},#{cur_village_id},#{home_district_id},"
+    sql += "#{home_ta_id},#{home_village_id},\"#{record[:person][:mother][:foreigner_home_district]}\","
+    sql += "\"#{record[:person][:mother][:foreigner_current_ta]}\",\"#{record[:person][:mother][:foreigner_current_village]}\","
+    sql += "\"#{record[:person][:mother][:foreigner_home_district]}\",\"#{record[:person][:mother][:foreigner_home_ta]}\","
+    sql += "\"#{record[:person][:mother][:foreigner_home_village]}\",#{citizenship},#{residential_country},"
+    sql += "\"#{address_line_1}\",\"#{address_line_2}\",\"#{created_at}\",\"#{updated_at}\"),"
+
+    `echo -n '#{sql}' >> #{@dump_files}person_addresses.sql`
+end
+
+def build_person_relationship_sql(record,person_type)
+
+  
+	 person_type_id = PersonRelationType.where(name: person_type).last.id
+     if person_type == 'Mother'
+     	person_b = @@mother_core_person_counter
+     elsif person_type == 'Father'
+     	person_b = @@father_core_person_counter
+     else
+     	person_b = @@informant_core_person_counter
+     end
+    sql = "(#{@@core_person_counter},#{person_b},#{person_type_id},"
+    sql += "\"#{record[:person][:created_at].to_date}\",\"#{record[:person][:updated_at].to_date}\"),"
+
+   `echo -n '#{sql}' >> #{@dump_files}person_relationship.sql`
+     @@core_person_counter = @@core_person_counter.to_i + 2
+end
+
+def mother_record(record,mother_type)
+    @@mother_core_person_counter = @@core_person_counter
+    @@mother_core_person_counter = @@mother_core_person_counter.to_i + 1
+
+	if mother_type =="Adoptive-Mother"
+        mother = record[:person][:foster_mother]
+    else
+        mother = record[:person][:mother]
+    end
+
+    build_core_person_sql(record,mother_type)
+    build_person_sql(record)
+    build_person_name_sql(record,"Mother")
+    build_person_address_sql(record,mother_type)
+    build_person_relationship_sql(record,mother_type)
+
+end
+
+def father_record(record,father_type)
+    @@father_core_person_counter = @@core_person_counter
+    @@father_core_person_counter = @@father_core_person_counter.to_i + 1
+
+	if father_type =="Adoptive-Father"
+        father = record[:person][:foster_father]
+    else
+        father = record[:person][:father]
+    end
+
+    build_core_person_sql(record,father_type)
+    build_person_sql(record)
+    build_person_name_sql(record,"Father")
+    build_person_address_sql(record,father_type)
+    build_person_relationship_sql(record,father_type)
+
+end
+
+def informant_record(record)
+
+    if record[:informant_same_as_mother]== 'Yes'
+       build_person_relationship_sql(record,'Informant')
+    elsif record[:informant_same_as_father] =='Yes'
+       build_person_relationship_sql(record,'Informant')
+    else
+
+    end
+    	
+end
+
+def initiate_sql_dump_build(record)
+
+	registration_type  = record[:person][:relationship]
+	build_core_person_sql(record, "Client")
+	build_person_sql(record)
+	build_person_name_sql(record,"Client")
+
+	case registration_type
+	   when "normal"
+             mother_record(record,"Mother")
+             father_record(record, "Father")
+             informant_record(record)
+	   when "orphaned"
+	   when "adopted"
+	   when "abandoned"
+	else
+    end
 
 end
 
 def start
 
-  prepare_dump_files
-  total_records = Child.count
-  page_size = 1000
-  @total_records = total_records
-  total_pages = (total_records / page_size) + (total_records % page_size)
-  current_page = 0
+	prepare_dump_files
+	total_records = Child.count
+	page_size = 1000
+	total_pages = (total_records / page_size) + (total_records % page_size)
+	current_page = 1
 
-  while (current_page < total_pages) do
-    build_client_record(current_page, page_size)
-    current_page = current_page + 1
-    break
-  end
+	while (current_page < total_pages) do
+
+        build_client_record(current_page, page_size)
+        current_page = current_page + 1
+	end
 
    puts "\n"
    puts "Completed migration of 1 of 3 batch of records! Please review the log files to verify.."
    puts "\n"
 end
 
-@total_records = 0
-@record_count = 0
 start

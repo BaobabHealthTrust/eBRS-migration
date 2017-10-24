@@ -42,7 +42,7 @@ class EncryptionWrapper
 
   alias_method :after_initialize, :after_save
 
-  private
+  #private
   def encrypt(value)
 
     return value if !File.exists?("#{Rails.root}/config/public.pem")

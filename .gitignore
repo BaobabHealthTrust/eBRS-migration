@@ -32,4 +32,4 @@ public/query.sql
 app/assets/data/migration_dumps/*.sql
 app/assets/data/error_log.txt
 app/assets/data/*.csv
-app/assets/data/migration_dumps/*.csv
+app/assets/data/migration_dumps/*.csvp

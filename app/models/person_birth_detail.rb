@@ -12,7 +12,7 @@ class PersonBirthDetail < ActiveRecord::Base
     before_create :set_level
 
   def set_level
-    self.level = 'HQ'
+    self.level = 'HQ' if self.blank?
   end
   def birth_type
     PersonTypeOfBirth.find(self.type_of_birth)
@@ -34,7 +34,7 @@ class PersonBirthDetail < ActiveRecord::Base
     n = self.national_serial_number
     return nil if n.blank?
     gender = Person.find(self.person_id).gender == 'M' ? '2' : '1'
-    n = n.to_s.rjust(10, '0')
+    n = n.to_s.rjust(12, '0')
     n.insert(n.length/2, gender)
   end
 

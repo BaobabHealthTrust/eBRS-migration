@@ -5,44 +5,45 @@ module PersonService
   def self.create_record(params)
 
     registration_type   = params[:person][:relationship]
-    person  = Lib.new_child(params)
+    person  = MigrateChild.new_child(params)
+
     case registration_type
       when "normal"
-        mother   = Lib.new_mother(person, params, 'Mother')
-        father   = Lib.new_father(person, params,'Father')
-        informant = Lib.new_informant(person, params)
+        mother   = MigrateMother.new_mother(person, params, 'Mother')
+        father   = MigrateFather.new_father(person, params,'Father')
+        informant = MigrateInformant.new_informant(person, params)
       when "orphaned"
         #mother   = Lib.new_mother(person, params, 'Adoptive-Mother')
         #father   = Lib.new_father(person, params,'Adoptive-Father')
-        informant = Lib.new_informant(person, params)
+        informant = MigrateInformant.new_informant(person, params)
       when "adopted"
         if params[:biological_parents] == "Both" || params[:biological_parents] =="Mother"
-          mother   = Lib.new_mother(person, params, 'Mother')
+          mother   =MigrateMother.new_mother(person, params, 'Mother')
         end
-        if params[:biological_parents] == "Both" || params[:biological_parents] =="Mother"
-          father   = Lib.new_father(person, params,'Father')
+        if params[:biological_parents] == "Both" || params[:biological_parents] =="Father"
+          father   = MigrateFather.new_father(person, params,'Father')
         end
         if params[:foster_parents] == "Both" || params[:foster_parents] =="Mother"
-          adoptive_mother   = Lib.new_mother(person, params, 'Adoptive-Mother')
+          adoptive_mother   = MigrateMother.new_mother(person, params, 'Adoptive-Mother')
         end
         if params[:foster_parents] == "Both" || params[:foster_parents] =="Mother"
           adoptive_father   = Lib.new_father(person, params,'Adoptive-Father')
         end
-        informant = Lib.new_informant(person, params)
+        informant = MigrateInformant.new_informant(person, params)
       when "abandoned"
         if params[:parents_details_available] == "Both" || params[:parents_details_available] == "Mother"
-          mother   = Lib.new_mother(person, params, 'Mother')
+          mother   = MigrateMother.new_mother(person, params, 'Mother')
         end
         if params[:parents_details_available] == "Both" || params[:parents_details_available] == "Father"
-          mother   = Lib.new_father(person, params, 'Father')
+          mother   = MigrateFather.new_father(person, params, 'Father')
         end
-        informant = Lib.new_informant(person, params)
+        informant = MigrateInformant.new_informant(person, params)
     else 
 
     end
-
-    details = Lib.new_birth_details(person, params)
-    status = Lib.workflow_init(person,params)
+   
+    details = MigraBirthDetails.new_birth_details(person, params)
+    status = MigrateChild.workflow_init(person,params)
     return person
   end
 
@@ -119,7 +120,7 @@ module PersonService
             INNER JOIN person_birth_details pbd ON p.person_id = pbd.person_id
           WHERE prs.status_id IN (#{state_ids.join(', ')})
             AND pbd.birth_registration_type_id IN (#{person_reg_type_ids.join(', ')})
-          GROUP BY prs.person_id
+          GROUP BY p.person_id
           ORDER BY p.updated_at DESC
            "
     )
@@ -127,7 +128,6 @@ module PersonService
     results = []
 
     main.each do |data|
-      person_name =  Person.find(data.person_id).person_names.last
       mother = self.mother(data.person_id)
       father = self.father(data.person_id)
       #For abandoned cases mother details may not be availabe
@@ -136,7 +136,7 @@ module PersonService
       #The form treat Father as optional
       #next if father.blank?
       #next if father.first_name.blank?
-      name          = ("#{person_name.first_name} #{person_name.middle_name rescue ''} #{person_name.last_name}")
+      name          = ("#{data['first_name']} #{data['middle_name']} #{data['last_name']}")
       mother_name   = ("#{mother.first_name rescue 'N/A'} #{mother.middle_name rescue ''} #{mother.last_name rescue ''}")
       father_name   = ("#{father.first_name rescue 'N/A'} #{father.middle_name rescue ''} #{father.last_name rescue ''}")
 
@@ -156,7 +156,7 @@ module PersonService
 
   end
 
-  def self.search_results(filters={}, params)
+  def self.search_results(filters={})
 
     if filters.blank?
       return []
@@ -164,15 +164,6 @@ module PersonService
     entry_num_query = ''; fac_serial_query = ''; name_query = ''; limit = ' '
     limit = ' LIMIT 10 ' if filters.blank?
     gender_query = ''; place_of_birth_query = ''; status_query=''
-
-    types = []
-    if params[:type] == 'All'
-      types=['Normal', 'Abandoned', 'Adopted', 'Orphaned']
-    else
-      types=[params[:type]]
-    end
-
-    person_reg_type_ids = BirthRegistrationType.where(" name IN ('#{types.join("', '")}')").map(&:birth_registration_type_id) + [-1]
 
     filters.keys.each do |k|
       case k
@@ -191,7 +182,7 @@ module PersonService
             name_query += " AND n.first_name = '#{filters[k]["person[first_name]"]}'"
           end
         when 'Child Gender'
-          gender_query = " AND person.gender = '#{filters[k]["person[gender]"].split('')[0]}' "
+          gender_query = " AND p.gender = '#{filters[k]["person[gender]"].split('')[0]}' "
         when 'Place of Birth'
           place_id = Location.locate_id_by_tag(filters[k]["person[place_of_birth]"], 'Place of Birth')
           if place_id.present?
@@ -221,58 +212,49 @@ module PersonService
       end
     end
 
-    search_val = params[:search][:value] rescue nil
-    search_val = '_' if search_val.blank?
-
-    main =   Person.order(" person.updated_at DESC ")
-    main = main.joins(" INNER JOIN core_person cp ON person.person_id = cp.person_id
-            INNER JOIN person_name n ON person.person_id = n.person_id
-            INNER JOIN person_record_statuses prs ON person.person_id = prs.person_id
-            INNER JOIN person_birth_details pbd ON person.person_id = pbd.person_id ")
-
-    main = main.where(" COALESCE(prs.voided, 0) = 0
-            AND pbd.birth_registration_type_id IN (#{person_reg_type_ids.join(', ')})
+    main = Person.find_by_sql(
+        "SELECT n.*, prs.status_id, pbd.district_id_number AS ben, pbd.national_serial_number AS brn FROM person p
+            INNER JOIN core_person cp ON p.person_id = cp.person_id
+            INNER JOIN person_name n ON p.person_id = n.person_id
+            INNER JOIN person_record_statuses prs ON p.person_id = prs.person_id
+            INNER JOIN person_birth_details pbd ON p.person_id = pbd.person_id
+          WHERE COALESCE(prs.voided, 0) = 0
             #{entry_num_query} #{fac_serial_query} #{name_query} #{gender_query} #{place_of_birth_query} #{status_query}
-           AND concat_ws('_', pbd.national_serial_number, pbd.district_id_number, n.first_name, n.last_name, n.middle_name,
-                person.birthdate, person.gender) REGEXP '#{search_val}' ")
+          GROUP BY p.person_id
+          ORDER BY p.updated_at DESC
+            #{limit}
+           "
+    )
 
-    total = main.select(" count(*) c ")[0]['c'] rescue 0
-    page = (params[:start].to_i / params[:length].to_i) + 1
+    results = []
 
-    data = main.group(" prs.person_id ")
-
-    data = data.select(" n.*, prs.status_id, pbd.district_id_number AS ben, person.gender, person.birthdate, pbd.national_serial_number AS brn, pbd.date_reported")
-    data = data.page(page)
-    .per_page(params[:length].to_i)
-
-    @records = []
-    data.each do |p|
-      mother = PersonService.mother(p.person_id)
-      father = PersonService.father(p.person_id)
-      details = PersonBirthDetail.find_by_person_id(p.person_id)
-
-      name          = ("#{p['first_name']} #{p['middle_name']} #{p['last_name']}")
+    main.each do |data|
+      mother = self.mother(data.person_id)
+      father = self.father(data.person_id)
+      #For abandoned cases mother details may not be availabe
+      #next if mother.blank?
+      #next if mother.first_name.blank?
+      #The form treat Father as optional
+      #next if father.blank?
+      #next if father.first_name.blank?
+      name          = ("#{data['first_name']} #{data['middle_name']} #{data['last_name']}")
       mother_name   = ("#{mother.first_name rescue 'N/A'} #{mother.middle_name rescue ''} #{mother.last_name rescue ''}")
       father_name   = ("#{father.first_name rescue 'N/A'} #{father.middle_name rescue ''} #{father.last_name rescue ''}")
-      row = []
-      row = [p.ben] if params[:assign_ben] == 'true'
-      row = row + [
-          "#{name} (#{p.gender})",
-          p.birthdate.strftime('%d/%b/%Y'),
-          mother_name,
-          father_name,
-          p.date_reported.strftime('%d/%b/%Y'),
-          Status.find(p.status_id).name,
-          p.person_id
-      ]
-      @records << row
+
+      results << {
+          'id' => data.person_id,
+          'ben' => data.ben,
+          'brn' => data.brn,
+          'name'        => name,
+          'father_name'       => father_name,
+          'mother_name'       => mother_name,
+          'status'            => Status.find(data.status_id).name, #.gsub(/DC\-|FC\-|HQ\-/, '')
+          'date_of_reporting' => data['created_at'].to_date.strftime("%d/%b/%Y"),
+      }
     end
 
-    {
-        "draw" => params[:draw].to_i,
-        "recordsTotal" => total,
-        "recordsFiltered" => total,
-        "data" => @records}
+    results
+
   end
 
 
