@@ -364,6 +364,13 @@ class Child < CouchRest::Model::Base
 
     view :by_record_status_code_and_request_status_code
 
+    view :by_child_demographics,
+         :map => "function(doc) {
+                  if (doc['type'] == 'Child') {
+                    emit([doc['first_name_code'], doc['last_name_code'], doc['gender'], doc['birthdate'], doc['mother']['first_name_code'], doc['mother']['last_name_code']], 1);
+                  }
+                }"
+
   end
 
 end

@@ -1,10 +1,13 @@
 source 'https://rubygems.org'
 
+ruby '2.2.1'
 
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 gem 'rails', '4.2.6'
-# Use sqlite3 as the database for Active Record
-gem 'sqlite3'
+# Use mysql as the database for Active Record
+gem 'mysql2', '>= 0.3.13', '< 0.5'
+
+gem 'mysql'
 # Use SCSS for stylesheets
 gem 'sass-rails', '~> 5.0'
 # Use Uglifier as compressor for JavaScript assets
@@ -23,6 +26,9 @@ gem 'jbuilder', '~> 2.0'
 # bundle exec rake doc:rails generates the API under doc/api.
 gem 'sdoc', '~> 0.4.0', group: :doc
 
+gem "whitesimilarity"
+
+gem 'mac-address'
 # Use ActiveModel has_secure_password
 # gem 'bcrypt', '~> 3.1.7'
 
@@ -46,7 +52,47 @@ group :development do
 end
 
 gem 'couchrest_model'
- 
-gem 'mysql2'
- 
 
+gem 'rest-client'
+
+gem 'bcrypt', '3.1.7'
+
+gem 'bcrypt-ruby', :require => 'bcrypt'
+
+#gem 'rake', '10.3.2'
+
+gem 'cancancan', '1.8.2'
+
+gem 'redirectr'
+
+#gem 'sprockets', '2.11.3'
+
+#gem 'sprockets-rails', '2.2.1'
+
+gem 'passenger', '4.0.53'
+
+gem 'rb-readline'
+
+gem 'barby'
+
+gem 'rmagick'
+
+gem 'rqrcode'
+
+gem 'chronic', '0.10.2'
+
+gem 'whenever',  :require => false
+
+gem 'countries'
+
+gem 'composite_primary_keys', '~> 8.0'
+
+gem 'sucker_punch', '~> 2.0'
+
+gem "faker", "~> 1.6.6"
+
+gem "will_paginate", "3.1.6"
+
+gem "activerecord-session_store"
+
+gem "oj"

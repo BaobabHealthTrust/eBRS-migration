@@ -1,28 +1,30 @@
 module MigrateInformant
 	def self.new_informant(person, params, mother=nil, father=nil)
-
 	    informant_person = nil; core_person = nil
 
 	    informant = params[:person][:informant]
 	    informant[:citizenship] = 'Malawian' if informant[:citizenship].blank?
 	    informant[:residential_country] = 'Malawi' if informant[:residential_country].blank?
-
+	    rel = params[:person][:informant][:relationship_to_person] rescue nil
 	    if MigrateChild.is_twin_or_triplet(params[:person][:type_of_birth].to_s,params)
 	      informant_person = Person.find(params[:person][:prev_child_id]).informant
 	    elsif params[:informant_same_as_mother] == 'Yes'
 	      informant_person = mother
 	    elsif params[:informant_same_as_father] == 'Yes'
 	        informant_person = father
-      elsif (params[:informant_same_as_father].blank? || params[:informant_same_as_mother].blank?) && (!mother.blank? || !father.blank?)
-	    	if mother.present?
-	    		informant_person = mother
-	    	elsif father.present?
-	    		informant_person = father
+      	elsif !['Mother','Father'].include? rel
+      		if rel.blank?
+      			if params[:person][:informant].blank?
+      				if mother.present?
+				    	 informant_person = mother
+				    elsif father.present?
+				    	 informant_person = father
+				    end
+      			end
+      		end	
+      	end
 
-	    	end
-      end
-
-      if informant_person.blank?
+      	if informant_person.blank?
 	      core_person = CorePerson.create(
 	          :person_type_id => PersonType.where(:name => 'Informant').last.id,
 	          :created_at     => params[:person][:created_at].to_date.to_s,
@@ -85,12 +87,12 @@ module MigrateInformant
 
       informant_id = informant_person.id
 
-	    PersonRelationship.create(
+	  PersonRelationship.create(
 	        person_a: person_id, person_b: informant_id,
 	        person_relationship_type_id: PersonRelationType.where(name: 'Informant').last.id,
 	        created_at: params[:person][:created_at].to_date.to_s,
 	        updated_at: params[:person][:updated_at].to_date.to_s
-	    )
+	   )
 
 
 	    if informant[:phone_number].present?

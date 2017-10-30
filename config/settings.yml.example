@@ -1,0 +1,9 @@
+protocol: http
+location_id: 356 #default 356 for Lilongwe
+migration_mode: DC # FC/DC
+enable_role_privileges: true #ly works when in development mode
+duplicate_precision: 80
+potential_search: false
+printer_name: test1|tst2|test3
+barcodes_path: /var/www/barcodes/
+certificates_path: /var/www/certificates/

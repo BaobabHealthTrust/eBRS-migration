@@ -57,6 +57,8 @@ User.current = user
 Duplicate_attribute_type_id = PersonAttributeType.where(name: 'Duplicate Ben').first.id
 
 password = CONFIG["crtkey"] rescue nil
+password = "password" if password.blank?
+
 $private_key = OpenSSL::PKey::RSA.new(File.read("#{Rails.root}/config/private.pem"), password)
 $old_ben_type = PersonIdentifierType.where(name: 'Old Birth Entry Number').first.id
 $old_brn_type = PersonIdentifierType.where(name: 'Old Birth Registration Number').first.id
@@ -329,7 +331,7 @@ def get_record_status(rec_status, req_status)
 					'COMPLETE' =>'HQ-COMPLETE',
 					'CAN PRINT' =>'HQ-CAN-PRINT',
 					'CAN REJECT' =>'HQ-CAN-REJECT',
-					'APPROVED' =>'HQ-APPROVED',
+					'APPROVED' =>'HQ-COMPLETE',
 					'TBA-CONFLICT' =>'HQ-CONFLICT',
 					'TBA-POTENTIAL DUPLICATE' =>'HQ-POTENTIAL DUPLICATE-TBA',
 					'CAN VOID' =>'HQ-CAN-VOID',
@@ -348,7 +350,7 @@ def decrypt(value)
 
   return value if string.nil?
 
-  return string
+  return string.strip
 
 end
 
@@ -394,6 +396,7 @@ def build_client_record(records)
                       foster_mother: {},
                       foster_father: {},
                       form_signed: r[:form_signed],
+                      date_registered: r[:date_registered],
                       acknowledgement_of_receipt_date: r[:acknowledgement_of_receipt_date]
     },
              home_address_same_as_physical: "Yes",
@@ -595,15 +598,19 @@ end
 puts "Migrating multiple births"
 load "#{Rails.root}/bin/migrate_multiple_births.rb"
 
+puts "Linking duplicates"
+load "#{Rails.root}/bin/duplicates_linking.rb"
+
 name = @location.name.gsub(/\s+/, '_')
 dump_name = "#{name}_#{SETTINGS['migration_mode']}.sql"
 
 puts "building data dump for migration"
 `bash build_migrated_data_dump.sql #{Rails.env} #{dump_name}`
 
+puts "Migrating Users"
+load "#{Rails.root}/bin/user_migration.rb"
 
 puts "DUMP location: #{Rails.root}/#{dump_name}"
 
 File.open("#{Rails.root}/errors.json", 'w'){|f| f.write @errored}
 puts "Total Records: #{@results.keys.count}  Successful: #{@successful.count} Errored : #{@errored.count}"
-
