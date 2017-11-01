@@ -33,5 +33,9 @@ app/assets/data/migration_dumps/*.sql
 app/assets/data/error_log.txt
 app/assets/data/*.txt
 app/assets/data/*.csv
+<<<<<<< HEAD
 app/assets/data/migration_dumps/*.csv
 app/assets/data/*.json
+=======
+app/assets/data/migration_dumps/*.csvp
+>>>>>>> parent of 75b299d... removed all unnecessary files
