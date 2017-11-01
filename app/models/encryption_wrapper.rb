@@ -73,7 +73,7 @@ class EncryptionWrapper
 
     return value if string.nil?
 
-    return string.strip
+    return string
 
   end
 
