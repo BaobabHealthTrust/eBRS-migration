@@ -604,11 +604,16 @@ load "#{Rails.root}/bin/duplicates_linking.rb"
 name = @location.name.gsub(/\s+/, '_')
 dump_name = "#{name}_#{SETTINGS['migration_mode']}.sql"
 
-puts "building data dump for migration"
-`bash build_migrated_data_dump.sql #{Rails.env} #{dump_name}`
-
 puts "Migrating Users"
 load "#{Rails.root}/bin/user_migration.rb"
+
+if SETTINGS['migration_mode'] == 'DC'
+  puts "Fixing faulty BEN's"
+  load "#{Rails.root}/bin/fix_ben.rb"
+end
+
+puts "building data dump for migration"
+`bash build_migrated_data_dump.sql #{Rails.env} #{dump_name}`
 
 puts "DUMP location: #{Rails.root}/#{dump_name}"
 
